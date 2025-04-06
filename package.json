@@ -1,0 +1,16 @@
+{
+  "name": "polybot",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir=dist --minify",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
