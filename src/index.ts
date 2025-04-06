@@ -1,6 +1,7 @@
 import { config } from "@dotenvx/dotenvx";
+import { JsonRpcProvider } from "@ethersproject/providers";
+import { Wallet } from "@ethersproject/wallet";
 import { type ApiKeyCreds, Chain, ClobClient } from "@polymarket/clob-client";
-import { ethers } from "ethers";
 
 config();
 
@@ -13,8 +14,8 @@ async function initializeBot() {
   // Optional: Use Multi-Endpoint Provider for better RPC reliability
   // import { JsonRpcMultiProvider } from '@polymarket/multi-endpoint-provider';
   // const provider = new JsonRpcMultiProvider([process.env.RPC_URL!, /* add fallback RPCs */]);
-  const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const provider = new JsonRpcProvider(process.env.RPC_URL);
+  const wallet = new Wallet(privateKey, provider);
   console.log(`Bot Wallet Address: ${await wallet.getAddress()}`);
 
   // --- CLOB Client Setup ---
@@ -78,7 +79,7 @@ async function initializeBot() {
 }
 
 // --- Main Bot Logic Area ---
-async function runBotLogic(client: ClobClient, wallet: ethers.Wallet) {
+async function runBotLogic(client: ClobClient, wallet: Wallet) {
   console.log("Running bot logic...");
 
   // TODO: Implement your trading strategy here
