@@ -7,7 +7,12 @@
     "dev": "bun --watch src/index.ts",
     "test": "bun test"
   },
+  "dependencies": {
+    "@polymarket/clob-client": "^4.15.0",
+    "ethers": "^6.13.5"
+  },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.39.1",
     "@types/bun": "latest"
   },
   "peerDependencies": {
