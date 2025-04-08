@@ -29,7 +29,7 @@ const clobClient = new ClobClient(
 try {
   const markets = await clobClient.getMarkets();
 
-  writeFileSync("./markets.json", JSON.stringify(markets, null, 2), "utf-8");
+  writeFileSync("./markets.json", JSON.stringify(markets));
   for (const market of markets.data as Market[]) {
     log(market.question);
   }

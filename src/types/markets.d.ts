@@ -24,24 +24,24 @@ interface Market {
   neg_risk_request_id: string;
   icon: string;
   image: string;
-  rewards: Rewards;
+  rewards: MarketRewards;
   is_50_50_outcome: boolean;
-  tokens: Token[];
+  tokens: MarketToken[];
   tags: string[] | null;
 }
 
-interface Rewards {
-  rates: Rate[] | null;
+interface MarketRewards {
+  rates: MarketRate[] | null;
   min_size: number;
   max_spread: number;
 }
 
-interface Rate {
+interface MarketRate {
   asset_address: string;
   rewards_daily_rate: number;
 }
 
-interface Token {
+interface MarketToken {
   token_id: string;
   outcome: string;
   price: number;
