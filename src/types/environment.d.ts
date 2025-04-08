@@ -8,4 +8,7 @@ declare namespace NodeJS {
     CLOB_SECRET: string;
     CLOB_PASS_PHRASE: string;
   }
+
+  
 }
+

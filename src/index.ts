@@ -3,6 +3,7 @@ import { Wallet } from "@ethersproject/wallet";
 import { type ApiKeyCreds, Chain, ClobClient } from "@polymarket/clob-client";
 import { Alchemy, Network } from "alchemy-sdk";
 import { log } from "console";
+import { writeFileSync } from "fs";
 
 config();
 
@@ -21,10 +22,19 @@ const creds: ApiKeyCreds = {
 };
 
 const clobClient = new ClobClient(
-  process.env.CLOB_API_URL,
+  process.env.CLOB_API_URL || "https://clob.polymarket.com", // Use default if not set
   Chain.POLYGON,
   wallet,
   creds
 );
 
-log(`CLOB Client Address: `, await clobClient.getApiKeys());
+try {
+  const markets = await clobClient.getMarkets();
+
+  writeFileSync("./markets.json", JSON.stringify(markets, null, 2), "utf-8");
+  for (const market of markets.data as Market[]) {
+    log(market.question);
+  }
+} catch (error) {
+  console.error("Error fetching markets:", error);
+}
