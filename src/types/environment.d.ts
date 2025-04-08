@@ -3,12 +3,8 @@ declare namespace NodeJS {
     PK: string;
     ALCHEMY_API_KEY: string;
 
-    CLOB_API_URL: string;
     CLOB_API_KEY: string;
     CLOB_SECRET: string;
     CLOB_PASS_PHRASE: string;
   }
-
-  
 }
-

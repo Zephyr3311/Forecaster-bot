@@ -20,7 +20,7 @@ const creds: ApiKeyCreds = {
 };
 
 const clobClient = new ClobClient(
-  process.env.CLOB_API_URL || "https://clob.polymarket.com", // Use default if not set
+  "https://clob.polymarket.com",
   Chain.POLYGON,
   wallet,
   creds
