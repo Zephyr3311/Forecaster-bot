@@ -26,3 +26,5 @@ const clobClient = new ClobClient(
   wallet,
   creds
 );
+
+log(`CLOB Client Address: `, await clobClient.getApiKeys());
