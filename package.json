@@ -5,15 +5,18 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --minify",
     "dev": "bun --watch src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "generate-key": "bun run src/generate-key.ts"
   },
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
+    "alchemy-sdk": "^3.5.6",
     "ethers": "^6.13.5"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "^1.39.1",
-    "@types/bun": "latest"
+    "@dotenvx/dotenvx": "latest",
+    "@types/bun": "latest",
+    "@types/node": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
