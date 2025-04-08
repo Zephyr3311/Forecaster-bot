@@ -1,11 +1,9 @@
-import { config } from "@dotenvx/dotenvx";
+import "@dotenvx/dotenvx/config";
 import { Wallet } from "@ethersproject/wallet";
 import { type ApiKeyCreds, Chain, ClobClient } from "@polymarket/clob-client";
 import { Alchemy, Network } from "alchemy-sdk";
-import { log } from "console";
+import { error, log } from "console";
 import { writeFileSync } from "fs";
-
-config();
 
 const provider = await new Alchemy({
   apiKey: process.env.ALCHEMY_API_KEY,
@@ -35,6 +33,6 @@ try {
   for (const market of markets.data as Market[]) {
     log(market.question);
   }
-} catch (error) {
-  console.error("Error fetching markets:", error);
+} catch (err) {
+  error("Error fetching markets:", err);
 }
