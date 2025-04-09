@@ -5,7 +5,8 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --minify",
     "dev": "bun --watch src/index.ts",
-    "test": "bun test",
+    "drizzle": "npm run drop-db & drizzle-kit generate",
+    "drop-db": "bun ./drizzle/reset-db.ts",
     "generate-key": "bun run src/generate-key.ts"
   },
   "dependencies": {
@@ -15,10 +16,11 @@
     "ethers": "^6.13.5"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "latest",
     "@types/bun": "^1.2.9",
     "@types/node": "latest",
-    "drizzle-kit": "^0.30.6"
+    "@types/pg": "^8.11.11",
+    "drizzle-kit": "^0.30.6",
+    "postgres": "^3.4.5"
   },
   "peerDependencies": {
     "typescript": "^5"
