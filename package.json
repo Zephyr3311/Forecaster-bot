@@ -16,7 +16,7 @@
     "ethers": "^6.13.5"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.9",
+    "@types/bun": "latest",
     "@types/node": "latest",
     "@types/pg": "^8.11.11",
     "drizzle-kit": "^0.30.6",
