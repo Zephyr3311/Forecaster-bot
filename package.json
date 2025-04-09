@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --minify --target=bun",
-    "dev": "bun --watch src/index.ts",
-    "drizzle": "npm run drop-db & drizzle-kit generate",
+    "dev": "bun --bun --watch src/index.ts",
+    "drizzle": "bun run drop-db & drizzle-kit generate",
     "drop-db": "bun ./drizzle/reset-db.ts",
     "gen": "bun --bun run src/generate-key.ts"
   },
