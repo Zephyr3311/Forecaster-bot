@@ -1,30 +1,12 @@
 import "@dotenvx/dotenvx/config";
-import { Wallet } from "@ethersproject/wallet";
-import { type ApiKeyCreds, Chain, ClobClient } from "@polymarket/clob-client";
-import { Alchemy, Network } from "alchemy-sdk";
 import { error, log } from "console";
 import { writeFileSync } from "fs";
+import { getClobClient, getWallet } from "./constants";
 
-const provider = await new Alchemy({
-  apiKey: process.env.ALCHEMY_API_KEY,
-  network: Network.MATIC_MAINNET,
-}).config.getProvider();
+const wallet = getWallet(process.env.PK);
+const clobClient = getClobClient(wallet);
 
-const wallet = new Wallet(process.env.PK, provider);
 log(`Bot Wallet Address: ${await wallet.getAddress()}`);
-
-const creds: ApiKeyCreds = {
-  key: process.env.CLOB_API_KEY,
-  secret: process.env.CLOB_SECRET,
-  passphrase: process.env.CLOB_PASS_PHRASE,
-};
-
-const clobClient = new ClobClient(
-  "https://clob.polymarket.com",
-  Chain.POLYGON,
-  wallet,
-  creds
-);
 
 async function getAllMarkets(): Promise<Market[]> {
   const allMarkets = [];
