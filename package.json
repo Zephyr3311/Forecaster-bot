@@ -16,9 +16,9 @@
     "ethers": "^6.13.5"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "latest",
     "@types/bun": "latest",
     "@types/node": "latest",
-    "@types/pg": "^8.11.11",
     "drizzle-kit": "^0.30.6",
     "postgres": "^3.4.5"
   },

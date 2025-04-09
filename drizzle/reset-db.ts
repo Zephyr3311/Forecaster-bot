@@ -1,5 +1,5 @@
+import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
-import "dotenv/config";
 import postgres from "postgres";
 
 // Connect to 'postgres' database instead of your app database
