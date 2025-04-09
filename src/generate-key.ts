@@ -7,7 +7,6 @@ import { creds } from "./clob";
 
 const randomWallet = Wallet.createRandom();
 const wallet = new Wallet(randomWallet.privateKey, alchemyProvider);
-
 const clobClient = new ClobClient(
   "https://clob.polymarket.com",
   Chain.POLYGON,
@@ -23,4 +22,4 @@ log(`Mnemonic:      ${randomWallet.mnemonic?.phrase}`);
 log("----------------------------------");
 log("🔑 New CLOB Wallet Generated:");
 log("----------------------------------");
-log(`Polymarket:       ${await clobClient.createOrDeriveApiKey()}`);
+log(`Polymarket:       `, await clobClient.createOrDeriveApiKey());

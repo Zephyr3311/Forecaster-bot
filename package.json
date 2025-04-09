@@ -7,7 +7,7 @@
     "dev": "bun --watch src/index.ts",
     "drizzle": "npm run drop-db & drizzle-kit generate",
     "drop-db": "bun ./drizzle/reset-db.ts",
-    "generate-key": "bun run src/generate-key.ts"
+    "gen": "bun --bun run src/generate-key.ts"
   },
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
