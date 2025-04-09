@@ -1,5 +1,7 @@
 declare namespace NodeJS {
   export interface ProcessEnv {
+    DATABASE_URL: string;
+
     PK: string;
     ALCHEMY_API_KEY: string;
 

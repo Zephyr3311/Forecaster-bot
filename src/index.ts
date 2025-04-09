@@ -26,7 +26,7 @@ const clobClient = new ClobClient(
   creds
 );
 
-async function getAllMarkets() {
+async function getAllMarkets(): Promise<Market[]> {
   const allMarkets = [];
   let nextCursor = "MA=="; // Initial cursor
 
