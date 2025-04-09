@@ -11,12 +11,14 @@
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
     "alchemy-sdk": "^3.5.6",
+    "drizzle-orm": "^0.41.0",
     "ethers": "^6.13.5"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "latest",
-    "@types/bun": "latest",
-    "@types/node": "latest"
+    "@types/bun": "^1.2.9",
+    "@types/node": "latest",
+    "drizzle-kit": "^0.30.6"
   },
   "peerDependencies": {
     "typescript": "^5"

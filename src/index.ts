@@ -26,11 +26,35 @@ const clobClient = new ClobClient(
   creds
 );
 
-try {
-  const markets = await clobClient.getMarkets();
+async function getAllMarkets() {
+  const allMarkets = [];
+  let nextCursor = "MA=="; // Initial cursor
 
-  writeFileSync("./markets.json", JSON.stringify(markets));
-  for (const market of markets.data as Market[]) {
+  while (nextCursor !== "LTE=") {
+    // "LTE=" is the END_CURSOR value
+    try {
+      const response = await clobClient.getMarkets(nextCursor);
+      allMarkets.push(...response.data);
+      nextCursor = response.next_cursor;
+
+      log(
+        `Fetched ${response.data.length} markets, next cursor: ${nextCursor}`
+      );
+    } catch (err) {
+      error("Error fetching markets:", err);
+      break;
+    }
+  }
+
+  return allMarkets;
+}
+
+try {
+  const allMarkets = await getAllMarkets();
+  writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
+  log(`Total markets fetched: ${allMarkets.length}`);
+
+  for (const market of allMarkets) {
     log(market.question);
   }
 } catch (err) {
