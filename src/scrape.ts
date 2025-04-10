@@ -13,10 +13,7 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
   try {
     // Connect to a real browser with anti-detection features
     const connection = await connect({
-      headless: false,
-      turnstile: true,
-      connectOption: { defaultViewport: null },
-      disableXvfb: false,
+      headless: true,
     });
 
     browser = connection.browser as unknown as Browser;
