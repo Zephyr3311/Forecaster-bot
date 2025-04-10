@@ -189,7 +189,6 @@ try {
   const allMarkets = await getAllMarkets();
   await insertMarketsIntoDb(allMarkets);
   writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
-  await insertMarketsIntoDb(allMarkets);
 } catch (err) {
   error("Error:", err);
 }
