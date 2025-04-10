@@ -1,58 +1,11 @@
 {
-  "id": "f1905b30-a1c2-469a-a6bc-27f95641feb0",
+  "id": "bda9eb9b-1a9b-45b0-8007-f7bb8fdbecbd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.market_tags": {
-      "name": "market_tags",
-      "schema": "",
-      "columns": {
-        "market_id": {
-          "name": "market_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tag": {
-          "name": "tag",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "market_tags_market_id_markets_id_fk": {
-          "name": "market_tags_market_id_markets_id_fk",
-          "tableFrom": "market_tags",
-          "tableTo": "markets",
-          "columnsFrom": [
-            "market_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "market_tags_market_id_tag_pk": {
-          "name": "market_tags_market_id_tag_pk",
-          "columns": [
-            "market_id",
-            "tag"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.markets": {
-      "name": "markets",
+    "public.market": {
+      "name": "market",
       "schema": "",
       "columns": {
         "id": {
@@ -240,8 +193,55 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.reward_rates": {
-      "name": "reward_rates",
+    "public.market_tag": {
+      "name": "market_tag",
+      "schema": "",
+      "columns": {
+        "market_id": {
+          "name": "market_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tag": {
+          "name": "tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "market_tag_market_id_market_id_fk": {
+          "name": "market_tag_market_id_market_id_fk",
+          "tableFrom": "market_tag",
+          "tableTo": "market",
+          "columnsFrom": [
+            "market_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "market_tag_market_id_tag_pk": {
+          "name": "market_tag_market_id_tag_pk",
+          "columns": [
+            "market_id",
+            "tag"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.reward_rate": {
+      "name": "reward_rate",
       "schema": "",
       "columns": {
         "id": {
@@ -272,10 +272,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "reward_rates_market_id_markets_id_fk": {
-          "name": "reward_rates_market_id_markets_id_fk",
-          "tableFrom": "reward_rates",
-          "tableTo": "markets",
+        "reward_rate_market_id_market_id_fk": {
+          "name": "reward_rate_market_id_market_id_fk",
+          "tableFrom": "reward_rate",
+          "tableTo": "market",
           "columnsFrom": [
             "market_id"
           ],
@@ -292,8 +292,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.rewards": {
-      "name": "rewards",
+    "public.reward": {
+      "name": "reward",
       "schema": "",
       "columns": {
         "id": {
@@ -325,10 +325,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "rewards_market_id_markets_id_fk": {
-          "name": "rewards_market_id_markets_id_fk",
-          "tableFrom": "rewards",
-          "tableTo": "markets",
+        "reward_market_id_market_id_fk": {
+          "name": "reward_market_id_market_id_fk",
+          "tableFrom": "reward",
+          "tableTo": "market",
           "columnsFrom": [
             "market_id"
           ],
@@ -345,8 +345,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.tokens": {
-      "name": "tokens",
+    "public.token": {
+      "name": "token",
       "schema": "",
       "columns": {
         "id": {
@@ -390,10 +390,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "tokens_market_id_markets_id_fk": {
-          "name": "tokens_market_id_markets_id_fk",
-          "tableFrom": "tokens",
-          "tableTo": "markets",
+        "token_market_id_market_id_fk": {
+          "name": "token_market_id_market_id_fk",
+          "tableFrom": "token",
+          "tableTo": "market",
           "columnsFrom": [
             "market_id"
           ],

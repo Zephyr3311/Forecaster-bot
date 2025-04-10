@@ -9,7 +9,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-export const markets = pgTable("markets", {
+export const marketSchema = pgTable("market", {
   id: serial("id").primaryKey(),
   conditionId: text("condition_id").notNull(),
   questionId: text("question_id").notNull(),
@@ -58,33 +58,33 @@ export const markets = pgTable("markets", {
   image: text("image"),
 });
 
-export const tokens = pgTable("tokens", {
+export const tokenSchema = pgTable("token", {
   id: serial("id").primaryKey(),
   marketId: integer("market_id")
     .notNull()
-    .references(() => markets.id, { onDelete: "cascade" }),
+    .references(() => marketSchema.id, { onDelete: "cascade" }),
   tokenId: text("token_id"),
   outcome: text("outcome"),
   price: decimal("price", { precision: 10, scale: 6 }).default("0"),
   winner: boolean("winner").default(false),
 });
 
-export const marketTags = pgTable(
-  "market_tags",
+export const marketTagSchema = pgTable(
+  "market_tag",
   {
     marketId: integer("market_id")
       .notNull()
-      .references(() => markets.id, { onDelete: "cascade" }),
+      .references(() => marketSchema.id, { onDelete: "cascade" }),
     tag: text("tag").notNull(),
   },
   (t) => [primaryKey({ columns: [t.marketId, t.tag] })]
 );
 
-export const rewardRates = pgTable("reward_rates", {
+export const rewardRateSchema = pgTable("reward_rate", {
   id: serial("id").primaryKey(),
   marketId: integer("market_id")
     .notNull()
-    .references(() => markets.id, { onDelete: "cascade" }),
+    .references(() => marketSchema.id, { onDelete: "cascade" }),
   assetAddress: text("asset_address").notNull(),
   rewardsDailyRate: decimal("rewards_daily_rate", {
     precision: 10,
@@ -92,11 +92,11 @@ export const rewardRates = pgTable("reward_rates", {
   }).default("0"),
 });
 
-export const rewards = pgTable("rewards", {
+export const rewardSchema = pgTable("reward", {
   id: serial("id").primaryKey(),
   marketId: integer("market_id")
     .notNull()
-    .references(() => markets.id, { onDelete: "cascade" }),
+    .references(() => marketSchema.id, { onDelete: "cascade" }),
   minSize: integer("min_size").default(0),
   maxSpread: decimal("max_spread", { precision: 10, scale: 2 }).default("0"),
 });

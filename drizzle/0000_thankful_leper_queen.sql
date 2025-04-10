@@ -1,10 +1,4 @@
-CREATE TABLE "market_tags" (
-	"market_id" integer NOT NULL,
-	"tag" text NOT NULL,
-	CONSTRAINT "market_tags_market_id_tag_pk" PRIMARY KEY("market_id","tag")
-);
---> statement-breakpoint
-CREATE TABLE "markets" (
+CREATE TABLE "market" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"condition_id" text NOT NULL,
 	"question_id" text NOT NULL,
@@ -34,21 +28,27 @@ CREATE TABLE "markets" (
 	"image" text
 );
 --> statement-breakpoint
-CREATE TABLE "reward_rates" (
+CREATE TABLE "market_tag" (
+	"market_id" integer NOT NULL,
+	"tag" text NOT NULL,
+	CONSTRAINT "market_tag_market_id_tag_pk" PRIMARY KEY("market_id","tag")
+);
+--> statement-breakpoint
+CREATE TABLE "reward_rate" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"market_id" integer NOT NULL,
 	"asset_address" text NOT NULL,
 	"rewards_daily_rate" numeric(10, 2) DEFAULT '0'
 );
 --> statement-breakpoint
-CREATE TABLE "rewards" (
+CREATE TABLE "reward" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"market_id" integer NOT NULL,
 	"min_size" integer DEFAULT 0,
 	"max_spread" numeric(10, 2) DEFAULT '0'
 );
 --> statement-breakpoint
-CREATE TABLE "tokens" (
+CREATE TABLE "token" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"market_id" integer NOT NULL,
 	"token_id" text,
@@ -57,7 +57,7 @@ CREATE TABLE "tokens" (
 	"winner" boolean DEFAULT false
 );
 --> statement-breakpoint
-ALTER TABLE "market_tags" ADD CONSTRAINT "market_tags_market_id_markets_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."markets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reward_rates" ADD CONSTRAINT "reward_rates_market_id_markets_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."markets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "rewards" ADD CONSTRAINT "rewards_market_id_markets_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."markets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "tokens" ADD CONSTRAINT "tokens_market_id_markets_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."markets"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "market_tag" ADD CONSTRAINT "market_tag_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reward_rate" ADD CONSTRAINT "reward_rate_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reward" ADD CONSTRAINT "reward_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "token" ADD CONSTRAINT "token_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;
