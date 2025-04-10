@@ -1,5 +1,5 @@
 {
-  "id": "bf71ae1f-5ce2-444b-84be-a664f44569d3",
+  "id": "93dd61b9-9ba1-4193-bcc9-42c08725c574",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -189,13 +189,6 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "market_condition_id_unique": {
-          "name": "market_condition_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "condition_id"
-          ]
-        },
         "market_question_id_unique": {
           "name": "market_question_id_unique",
           "nullsNotDistinct": false,

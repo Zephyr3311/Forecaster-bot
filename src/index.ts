@@ -81,7 +81,7 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
         .insert(marketSchema)
         .values(marketData)
         .onConflictDoUpdate({
-          target: marketSchema.conditionId,
+          target: marketSchema.questionId,
           set: marketData,
         })
         .returning();

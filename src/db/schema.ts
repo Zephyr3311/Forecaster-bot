@@ -11,7 +11,7 @@ import {
 
 export const marketSchema = pgTable("market", {
   id: serial("id").primaryKey(),
-  conditionId: text("condition_id").notNull().unique(),
+  conditionId: text("condition_id").notNull(),
   questionId: text("question_id").notNull().unique(),
   question: text("question").notNull(),
   description: text("description"),

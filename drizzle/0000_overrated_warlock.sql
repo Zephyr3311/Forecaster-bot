@@ -26,7 +26,6 @@ CREATE TABLE "market" (
 	"is_50_50_outcome" boolean DEFAULT false,
 	"icon" text,
 	"image" text,
-	CONSTRAINT "market_condition_id_unique" UNIQUE("condition_id"),
 	CONSTRAINT "market_question_id_unique" UNIQUE("question_id")
 );
 --> statement-breakpoint
