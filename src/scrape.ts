@@ -1,19 +1,5 @@
-import console from "console";
-import { writeFileSync } from "fs";
-import type { Browser, BrowserContext, Page } from "puppeteer";
+import type { Browser, BrowserContext, Cookie, Page } from "puppeteer";
 import { connect } from "puppeteer-real-browser";
-
-// Match Puppeteer's Cookie interface structure
-interface Cookie {
-  name: string;
-  value: string;
-  domain: string;
-  path: string;
-  expires: number;
-  httpOnly: boolean;
-  secure: boolean;
-  sameSite?: string; // Make optional with ?
-}
 
 interface SessionData {
   cookies: Cookie[];
@@ -22,6 +8,7 @@ interface SessionData {
 
 async function getCloudflareSession(url: string): Promise<SessionData> {
   let browser: Browser | null = null;
+  let context: BrowserContext | null = null;
 
   try {
     // Connect to a real browser with anti-detection features
@@ -33,10 +20,10 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
     });
 
     browser = connection.browser as unknown as Browser;
-    const context: BrowserContext = await browser.createBrowserContext();
+    context = await browser.createBrowserContext();
     const page: Page = await context.newPage();
 
-    // Find the Accept-Language header which is important for some CF protections
+    // Find the Accept-Language header
     const acceptLanguage = await page.evaluate(
       async (): Promise<string | null> => {
         try {
@@ -54,63 +41,58 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
       }
     );
 
-    // Set up request interception to capture the session
-    const sessionData: SessionData = { cookies: [], headers: {} };
-    let isResolved = false;
-
+    // Set up request interception and response monitoring
+    let sessionResolved = false;
     await page.setRequestInterception(true);
 
-    page.on("request", async (request: any) => request.continue());
+    page.on("request", async (request) => request.continue());
 
-    // Create a promise to handle the response
-    const sessionPromise = new Promise<SessionData>((resolve, reject) => {
+    return new Promise<SessionData>((resolve, reject) => {
+      // Set timeout
       const timeout = setTimeout(() => {
-        if (!isResolved) {
-          isResolved = true;
-          reject(new Error("Timeout Error"));
+        if (!sessionResolved) {
+          reject(new Error("Timeout waiting for Cloudflare session"));
         }
-      }, 60000); // 60 second timeout
+      }, 60000);
 
-      page.on("response", async (res: any) => {
+      page.on("response", async (res) => {
         try {
           if (
             [200, 302].includes(res.status()) &&
             [url, url + "/"].includes(res.url())
           ) {
-            // Wait for page to fully load
             await page
               .waitForNavigation({ waitUntil: "load", timeout: 5000 })
               .catch(() => {});
 
-            // Use context.cookies() without arguments
-            const cookies = await context.cookies();
-            let headers: Record<string, string> = await res.request().headers();
+            const cookies = await page.cookies();
+            let headers = await res.request().headers();
 
             // Clean up headers
             delete headers["content-type"];
             delete headers["accept-encoding"];
             delete headers["accept"];
             delete headers["content-length"];
-            headers["accept-language"] = acceptLanguage || "";
+            headers["accept-language"] = acceptLanguage || "en-US,en;q=0.9";
 
             clearTimeout(timeout);
-            isResolved = true;
+            sessionResolved = true;
             resolve({ cookies, headers });
           }
-        } catch (e) {}
+        } catch (e) {
+          // Continue if this response fails
+        }
       });
+
+      // Start the navigation
+      page.goto(url, { waitUntil: "domcontentloaded" }).catch(reject);
     });
-
-    // Navigate to the page
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-
-    // Wait for session data or timeout
-    return await sessionPromise;
+  } catch (error) {
+    throw error;
   } finally {
-    // Ensure browser is closed
-    if (browser) {
-      await browser.close();
-    }
+    // Clean up resources
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
   }
 }
 
@@ -118,24 +100,23 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
 async function main(): Promise<void> {
   try {
     const session = await getCloudflareSession("https://lmarena.ai/");
-    console.log("Session established:", session);
+    console.log("Session established");
 
-    // Example of how to use this session with fetch
+    // Use session with fetch
     const cookieString = session.cookies
       .map((cookie) => `${cookie.name}=${cookie.value}`)
       .join("; ");
 
-    // Now you can make regular fetch requests using these credentials
-    const response = await fetch("https://lmarena.ai/some-path", {
+    const response = await fetch("https://lmarena.ai/", {
       headers: {
         ...session.headers,
         Cookie: cookieString,
       },
     });
 
-    const html = await response.text();
-    writeFileSync("output.html", html);
-    console.log("Successfully fetched content");
+    const success =
+      response.ok && !(await response.text()).includes("cf-error-details");
+    console.log(`Fetch ${success ? "succeeded" : "failed"}`);
   } catch (error) {
     console.error("Error:", error);
   }
