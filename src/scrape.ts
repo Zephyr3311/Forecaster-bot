@@ -1,5 +1,9 @@
-import { Browser, BrowserContext, connect, Page } from "puppeteer-real-browser";
+import console from "console";
+import { writeFileSync } from "fs";
+import type { Browser, BrowserContext, Page } from "puppeteer";
+import { connect } from "puppeteer-real-browser";
 
+// Match Puppeteer's Cookie interface structure
 interface Cookie {
   name: string;
   value: string;
@@ -8,7 +12,7 @@ interface Cookie {
   expires: number;
   httpOnly: boolean;
   secure: boolean;
-  sameSite: string;
+  sameSite?: string; // Make optional with ?
 }
 
 interface SessionData {
@@ -28,7 +32,7 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
       disableXvfb: false,
     });
 
-    browser = connection.browser;
+    browser = connection.browser as unknown as Browser;
     const context: BrowserContext = await browser.createBrowserContext();
     const page: Page = await context.newPage();
 
@@ -39,7 +43,7 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
           const result = await fetch("https://httpbin.org/get")
             .then((res) => res.json())
             .then(
-              (res) =>
+              (res: any) =>
                 res.headers["Accept-Language"] || res.headers["accept-language"]
             )
             .catch(() => null);
@@ -56,7 +60,7 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
 
     await page.setRequestInterception(true);
 
-    page.on("request", async (request) => request.continue());
+    page.on("request", async (request: any) => request.continue());
 
     // Create a promise to handle the response
     const sessionPromise = new Promise<SessionData>((resolve, reject) => {
@@ -67,7 +71,7 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
         }
       }, 60000); // 60 second timeout
 
-      page.on("response", async (res) => {
+      page.on("response", async (res: any) => {
         try {
           if (
             [200, 302].includes(res.status()) &&
@@ -78,8 +82,8 @@ async function getCloudflareSession(url: string): Promise<SessionData> {
               .waitForNavigation({ waitUntil: "load", timeout: 5000 })
               .catch(() => {});
 
-            // Get cookies and headers
-            const cookies = await page.cookies();
+            // Use context.cookies() without arguments
+            const cookies = await context.cookies();
             let headers: Record<string, string> = await res.request().headers();
 
             // Clean up headers
@@ -130,6 +134,7 @@ async function main(): Promise<void> {
     });
 
     const html = await response.text();
+    writeFileSync("output.html", html);
     console.log("Successfully fetched content");
   } catch (error) {
     console.error("Error:", error);

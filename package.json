@@ -5,6 +5,7 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --minify --target=bun",
     "dev": "bun --bun --watch src/index.ts",
+    "scrape": "bun run src/scrape.ts",
     "drizzle": "bun run reset & drizzle-kit generate",
     "reset": "bun ./drizzle/reset-db.ts",
     "gen": "bun --bun run src/generate-key.ts"

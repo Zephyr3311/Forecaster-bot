@@ -36,3 +36,4 @@ package-lock.json
 pnpm-lock.yaml
 yarn.lock
 markets.json
+*.html
