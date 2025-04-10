@@ -5,7 +5,7 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --minify --target=bun",
     "dev": "bun --bun --watch src/index.ts",
-    "scrape": "bun run src/scrape.ts",
+    "scrape": "node --experimental-transform-types src/scrape.ts",
     "drizzle": "bun run reset & drizzle-kit generate",
     "reset": "bun ./drizzle/reset-db.ts",
     "gen": "bun --bun run src/generate-key.ts"
@@ -13,6 +13,7 @@
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
     "alchemy-sdk": "^3.5.6",
+    "cycletls": "^1.0.27",
     "drizzle-orm": "^0.41.0",
     "ethers": "^6.13.5",
     "puppeteer": "^24.6.1",
