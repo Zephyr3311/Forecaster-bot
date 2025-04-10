@@ -40,7 +40,7 @@ async function getAllMarkets(): Promise<Market[]> {
 
 async function insertMarketsIntoDb(marketsList: Market[]) {
   log(
-    `Inserting ${marketsList.length} markets into database...`,
+    `Start inserting ${marketsList.length} markets into database...`,
     new Date().toISOString()
   );
 
@@ -82,10 +82,10 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
       const [dbMarket] = await db
         .insert(marketSchema)
         .values(marketData)
-        // .onConflictDoUpdate({
-        //   target: marketSchema.questionId,
-        //   set: marketData,
-        // })
+        .onConflictDoUpdate({
+          target: marketSchema.marketSlug,
+          set: marketData,
+        })
         .returning();
 
       return {
@@ -120,7 +120,7 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
     `Deleted all related data for ${markets.length} markets from database successfully`,
     new Date().toISOString()
   );
-  
+
   // Batch insert all related data
   const insertOperations = [];
 
@@ -179,21 +179,17 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
 
   await Promise.all(insertOperations);
 
-  console.log(
-    `Inserted ${markets.length} markets into database successfully`,
+  log(
+    `Finished ${markets.length} markets into database successfully`,
     new Date().toISOString()
   );
 }
 
-async function main() {
-  try {
-    const allMarkets = await getAllMarkets();
-    await insertMarketsIntoDb(allMarkets);
-    writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
-    await insertMarketsIntoDb(allMarkets);
-  } catch (err) {
-    error("Error:", err);
-  }
+try {
+  const allMarkets = await getAllMarkets();
+  await insertMarketsIntoDb(allMarkets);
+  writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
+  await insertMarketsIntoDb(allMarkets);
+} catch (err) {
+  error("Error:", err);
 }
-
-main();
