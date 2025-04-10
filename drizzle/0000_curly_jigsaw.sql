@@ -4,7 +4,7 @@ CREATE TABLE "market" (
 	"question_id" text NOT NULL,
 	"question" text NOT NULL,
 	"description" text,
-	"market_slug" text,
+	"market_slug" text NOT NULL,
 	"active" boolean DEFAULT true,
 	"closed" boolean DEFAULT false,
 	"archived" boolean DEFAULT false,
@@ -26,7 +26,7 @@ CREATE TABLE "market" (
 	"is_50_50_outcome" boolean DEFAULT false,
 	"icon" text,
 	"image" text,
-	CONSTRAINT "market_question_id_unique" UNIQUE("question_id")
+	CONSTRAINT "market_market_slug_unique" UNIQUE("market_slug")
 );
 --> statement-breakpoint
 CREATE TABLE "market_tag" (

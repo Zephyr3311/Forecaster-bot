@@ -31,4 +31,5 @@ try {
   error("Error resetting database:", err);
 } finally {
   await sql.end();
+  
 }

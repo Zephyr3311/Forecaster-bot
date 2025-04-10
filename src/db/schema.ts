@@ -12,10 +12,10 @@ import {
 export const marketSchema = pgTable("market", {
   id: serial("id").primaryKey(),
   conditionId: text("condition_id").notNull(),
-  questionId: text("question_id").notNull().unique(),
+  questionId: text("question_id").notNull(),
   question: text("question").notNull(),
   description: text("description"),
-  marketSlug: text("market_slug"),
+  marketSlug: text("market_slug").notNull().unique(),
 
   // Status flags
   active: boolean("active").default(true),

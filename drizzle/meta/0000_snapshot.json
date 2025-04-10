@@ -1,5 +1,5 @@
 {
-  "id": "93dd61b9-9ba1-4193-bcc9-42c08725c574",
+  "id": "da27cb7e-5056-4f91-b09c-b04cbe420d24",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -42,7 +42,7 @@
           "name": "market_slug",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "active": {
           "name": "active",
@@ -189,11 +189,11 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "market_question_id_unique": {
-          "name": "market_question_id_unique",
+        "market_market_slug_unique": {
+          "name": "market_market_slug_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "question_id"
+            "market_slug"
           ]
         }
       },

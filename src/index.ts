@@ -39,16 +39,19 @@ async function getAllMarkets(): Promise<Market[]> {
 }
 
 async function insertMarketsIntoDb(marketsList: Market[]) {
-  console.log(`Inserting ${marketsList.length} markets into database...`);
+  log(
+    `Inserting ${marketsList.length} markets into database...`,
+    new Date().toISOString()
+  );
 
-  for (const market of marketsList) {
-    try {
+  const markets = await Promise.all(
+    marketsList.map(async (market) => {
       const marketData: typeof marketSchema.$inferInsert = {
         conditionId: market.condition_id,
         questionId: market.question_id,
         question: market.question,
         description: market.description || null,
-        marketSlug: market.market_slug || null,
+        marketSlug: market.market_slug,
         active: market.active,
         closed: market.closed,
         archived: market.archived,
@@ -76,91 +79,110 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
         image: market.image || null,
       };
 
-      // Insert market
       const [dbMarket] = await db
         .insert(marketSchema)
         .values(marketData)
-        .onConflictDoUpdate({
-          target: marketSchema.questionId,
-          set: marketData,
-        })
+        // .onConflictDoUpdate({
+        //   target: marketSchema.questionId,
+        //   set: marketData,
+        // })
         .returning();
 
-      if (!dbMarket) {
-        console.error(
-          `Failed to insert market: ${market.question} - no ID returned`
-        );
-        continue;
-      }
+      return {
+        market,
+        dbId: dbMarket!.id!,
+      };
+    })
+  );
 
-      const marketId = dbMarket.id;
+  log(
+    `Inserted ${markets.length} markets into database successfully`,
+    new Date().toISOString()
+  );
 
-      // Delete existing tokens for this market
-      await db.delete(tokenSchema).where(eq(tokenSchema.marketId, marketId));
+  // Batch delete all related data
+  await Promise.all([
+    ...markets.map(({ dbId }) =>
+      db.delete(tokenSchema).where(eq(tokenSchema.marketId, dbId))
+    ),
+    ...markets.map(({ dbId }) =>
+      db.delete(marketTagSchema).where(eq(marketTagSchema.marketId, dbId))
+    ),
+    ...markets.map(({ dbId }) =>
+      db.delete(rewardSchema).where(eq(rewardSchema.marketId, dbId))
+    ),
+    ...markets.map(({ dbId }) =>
+      db.delete(rewardRateSchema).where(eq(rewardRateSchema.marketId, dbId))
+    ),
+  ]);
 
-      // Insert tokens
-      if (market.tokens && market.tokens.length > 0) {
-        for (const token of market.tokens) {
-          await db.insert(tokenSchema).values({
-            marketId: marketId,
+  log(
+    `Deleted all related data for ${markets.length} markets from database successfully`,
+    new Date().toISOString()
+  );
+  
+  // Batch insert all related data
+  const insertOperations = [];
+
+  for (const { market, dbId } of markets) {
+    // Insert tokens
+    if (market.tokens?.length) {
+      insertOperations.push(
+        db.insert(tokenSchema).values(
+          market.tokens.map((token) => ({
+            marketId: dbId,
             tokenId: token.token_id,
             outcome: token.outcome,
             price: String(token.price),
             winner: token.winner,
-          });
-        }
-      }
+          }))
+        )
+      );
+    }
 
-      // Delete existing tags for this market
-      await db
-        .delete(marketTagSchema)
-        .where(eq(marketTagSchema.marketId, marketId));
-
-      // Insert tags
-      if (market.tags && market.tags.length > 0) {
-        for (const tag of market.tags) {
-          await db.insert(marketTagSchema).values({
-            marketId: marketId,
+    // Insert tags
+    if (market.tags?.length) {
+      insertOperations.push(
+        db.insert(marketTagSchema).values(
+          market.tags.map((tag) => ({
+            marketId: dbId,
             tag,
-          });
-        }
-      }
+          }))
+        )
+      );
+    }
 
-      // Delete existing rewards for this market
-      await db.delete(rewardSchema).where(eq(rewardSchema.marketId, marketId));
-
-      // Insert rewards
-      if (market.rewards) {
-        await db.insert(rewardSchema).values({
-          marketId: marketId,
+    // Insert rewards
+    if (market.rewards) {
+      insertOperations.push(
+        db.insert(rewardSchema).values({
+          marketId: dbId,
           minSize: market.rewards.min_size,
           maxSpread: String(market.rewards.max_spread),
-        });
+        })
+      );
 
-        // Delete existing reward rates for this market
-        await db
-          .delete(rewardRateSchema)
-          .where(eq(rewardRateSchema.marketId, marketId));
-
-        // Insert reward rates
-        if (market.rewards.rates && market.rewards.rates.length > 0) {
-          for (const rate of market.rewards.rates) {
-            await db.insert(rewardRateSchema).values({
-              marketId: marketId,
+      // Insert reward rates
+      if (market.rewards.rates?.length) {
+        insertOperations.push(
+          db.insert(rewardRateSchema).values(
+            market.rewards.rates.map((rate) => ({
+              marketId: dbId,
               assetAddress: rate.asset_address,
               rewardsDailyRate: String(rate.rewards_daily_rate),
-            });
-          }
-        }
+            }))
+          )
+        );
       }
-
-      // console.log(`Inserted market: ${market.question} (ID: ${marketId})`);
-    } catch (error) {
-      console.error(`Failed to insert market: ${market.question}`, error);
     }
   }
 
-  console.log("Database insertion complete");
+  await Promise.all(insertOperations);
+
+  console.log(
+    `Inserted ${markets.length} markets into database successfully`,
+    new Date().toISOString()
+  );
 }
 
 async function main() {
@@ -168,8 +190,6 @@ async function main() {
     const allMarkets = await getAllMarkets();
     await insertMarketsIntoDb(allMarkets);
     writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
-    log(`Total markets fetched: ${allMarkets.length}`);
-
     await insertMarketsIntoDb(allMarkets);
   } catch (err) {
     error("Error:", err);
