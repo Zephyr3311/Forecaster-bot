@@ -27,7 +27,9 @@ async function getAllMarkets(): Promise<Market[]> {
       allMarkets.push(...response.data);
       nextCursor = response.next_cursor;
       console.log(
-        `Fetched ${response.data.length} markets, next cursor: ${nextCursor}`
+        `Fetched ${response.data.length} markets, next cursor: ${atob(
+          nextCursor
+        )}`
       );
     } catch (err) {
       console.error("Error fetching markets:", err);
@@ -38,7 +40,7 @@ async function getAllMarkets(): Promise<Market[]> {
   return allMarkets;
 }
 
-async function insertMarketsIntoDb(marketsList: Market[]) {
+async function upsertMarkets(marketsList: Market[]) {
   log(
     `Start inserting ${marketsList.length} markets into database...`,
     new Date().toISOString()
@@ -50,7 +52,7 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
         conditionId: market.condition_id,
         questionId: market.question_id,
         question: market.question,
-        description: market.description || null,
+        description: market.description,
         marketSlug: market.market_slug,
         active: market.active,
         closed: market.closed,
@@ -72,11 +74,11 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
         takerBaseFee: String(market.taker_base_fee),
         notificationsEnabled: market.notifications_enabled,
         negRisk: market.neg_risk,
-        negRiskMarketId: market.neg_risk_market_id || null,
-        negRiskRequestId: market.neg_risk_request_id || null,
+        negRiskMarketId: market.neg_risk_market_id,
+        negRiskRequestId: market.neg_risk_request_id,
         is5050Outcome: market.is_50_50_outcome,
-        icon: market.icon || null,
-        image: market.image || null,
+        icon: market.icon,
+        image: market.image,
       };
 
       const [dbMarket] = await db
@@ -187,7 +189,7 @@ async function insertMarketsIntoDb(marketsList: Market[]) {
 
 try {
   const allMarkets = await getAllMarkets();
-  await insertMarketsIntoDb(allMarkets);
+  await upsertMarkets(allMarkets);
   writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
 } catch (err) {
   error("Error:", err);
