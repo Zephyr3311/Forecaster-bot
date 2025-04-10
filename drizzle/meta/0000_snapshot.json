@@ -1,5 +1,5 @@
 {
-  "id": "bda9eb9b-1a9b-45b0-8007-f7bb8fdbecbd",
+  "id": "bf71ae1f-5ce2-444b-84be-a664f44569d3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -188,7 +188,22 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "market_condition_id_unique": {
+          "name": "market_condition_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "condition_id"
+          ]
+        },
+        "market_question_id_unique": {
+          "name": "market_question_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "question_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
