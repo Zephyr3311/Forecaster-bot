@@ -72,19 +72,17 @@ async function getCloudflareSession(url: string) {
 
 try {
   log("Getting Cloudflare session...");
-  const session = await getCloudflareSession("https://disboard.org/");
+  const session = await getCloudflareSession("https://lmarena.ai/");
 
   log("Session obtained, cookies:", session.cookies.length);
   const cookieString = session.cookies
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
 
-  log("Initializing CycleTLS...");
-  const cycleTLS = await initCycleTLS();
-
   log("Making request with session...");
+  const cycleTLS = await initCycleTLS();
   const response = await cycleTLS(
-    "https://disboard.org/",
+    "https://lmarena.ai/",
     {
       userAgent: session.headers["user-agent"],
       headers: { cookie: cookieString },
