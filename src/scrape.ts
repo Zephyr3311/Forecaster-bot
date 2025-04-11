@@ -1,15 +1,25 @@
 import initCycleTLS from "cycletls";
-import { unlinkSync, writeFileSync } from "fs";
+import { mkdirSync, unlinkSync, writeFileSync } from "fs";
+import { join, resolve } from "path";
 import { connect } from "puppeteer-real-browser";
 
-unlinkSync("response.html");
+try {
+  unlinkSync("response.html");
+} catch (_) {}
+
+try {
+  unlinkSync("./stream/page.jpg");
+} catch (error) {}
 
 async function getCloudflareSession(url: string) {
-  const { browser } = await connect({
-    turnstile: true,
-    connectOption: { defaultViewport: null },
-    disableXvfb: false,
-  });
+  const { browser } = await connect({});
+
+  mkdirSync(join(resolve(), "stream"), { recursive: true });
+  setInterval(
+    async () =>
+      await page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
+    1000
+  );
 
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
@@ -86,9 +96,6 @@ try {
   const response = await cycleTLS(
     "https://lmarena.ai/",
     {
-      body: "",
-      ja3: "772,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,23-27-65037-43-51-45-16-11-13-17513-5-18-65281-0-10-35,25497-29-23-24,0",
-
       headers: {
         ...session.headers,
         cookie: cookieString,
