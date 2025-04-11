@@ -50,15 +50,15 @@ async function getCloudflareSession(url: string) {
   );
 
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-    const bypassed = await waitForCloudflareBypass(page);
-    if (!bypassed) throw new Error("Failed to bypass Cloudflare protection");
-
     await page.evaluate(() => {
       window.alert = () => {};
       window.confirm = () => true;
       window.prompt = () => "";
     });
+    
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    const bypassed = await waitForCloudflareBypass(page);
+    if (!bypassed) throw new Error("Failed to bypass Cloudflare protection");
 
     const cookies = await page.cookies();
     const headers = await page.evaluate(() => ({
