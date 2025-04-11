@@ -68,47 +68,42 @@ async function getCloudflareSession(url: string) {
     return { cookies, headers };
   } finally {
     clearInterval(screenshotInterval);
-
     await browser.close().catch(() => {});
   }
 }
 
-async function main() {
-  try {
-    log("Getting Cloudflare session...");
-    const session = await getCloudflareSession("https://disboard.org/");
+try {
+  log("Getting Cloudflare session...");
+  const session = await getCloudflareSession("https://disboard.org/");
 
-    log("Session obtained, cookies:", session.cookies.length);
-    const cookieString = session.cookies
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .join("; ");
+  log("Session obtained, cookies:", session.cookies.length);
+  const cookieString = session.cookies
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
 
-    log("Initializing CycleTLS...");
-    const cycleTLS = await initCycleTLS();
+  log("Initializing CycleTLS...");
+  const cycleTLS = await initCycleTLS();
 
-    log("Making request with session...");
-    const response = await cycleTLS(
-      "https://disboard.org/",
-      {
-        userAgent: session.headers["user-agent"],
-        headers: { cookie: cookieString },
-      },
-      "get"
-    );
+  log("Making request with session...");
+  const response = await cycleTLS(
+    "https://disboard.org/",
+    {
+      userAgent: session.headers["user-agent"],
+      headers: { cookie: cookieString },
+    },
+    "get"
+  );
 
-    log("Response status:", response.status);
+  log("Response status:", response.status);
 
-    if (response.status === 200) {
-      writeFileSync("response.html", response.body.toString());
-      log("Response saved to response.html");
-    }
-
-    await cycleTLS.exit();
-  } catch (err) {
-    error("Error:", err);
+  if (response.status === 200) {
+    writeFileSync("response.html", response.body.toString());
+    log("Response saved to response.html");
   }
 
-  process.exit(0);
+  await cycleTLS.exit();
+} catch (err) {
+  error("Error:", err);
 }
 
-main();
+process.exit(0);
