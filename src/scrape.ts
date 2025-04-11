@@ -92,7 +92,8 @@ try {
 
   log("Response status:", response.status);
   if (response.status === 200) {
-    writeFileSync("response.html", response.body.toString());
+    const html = response.body.toString();
+    writeFileSync("response.html", html);
     log("Response saved to response.html");
   }
 
