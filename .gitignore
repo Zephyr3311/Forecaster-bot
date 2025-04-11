@@ -38,3 +38,4 @@ yarn.lock
 markets.json
 *.html
 page.jpg
+config.json

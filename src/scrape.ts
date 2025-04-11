@@ -1,3 +1,4 @@
+import * as cheerio from "cheerio";
 import { error, log } from "console";
 import initCycleTLS from "cycletls";
 import { mkdirSync, unlinkSync, writeFileSync } from "fs";
@@ -93,6 +94,15 @@ try {
   log("Response status:", response.status);
   if (response.status === 200) {
     const html = response.body.toString();
+    const $ = cheerio.load(html);
+
+    const script = $("script")
+      .filter((_, el) => $(el).text().includes("window.gradio_config"))
+      .first()
+      .text()
+      .replace("window.gradio_config = ", "")
+      .slice(0, -1);
+    writeFileSync("config.json", script);
     writeFileSync("response.html", html);
     log("Response saved to response.html");
   }
