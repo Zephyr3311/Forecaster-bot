@@ -91,10 +91,7 @@ async function main() {
       "https://disboard.org/",
       {
         userAgent: session.headers["user-agent"],
-        headers: {
-          // ...session.headers,
-          cookie: cookieString,
-        },
+        headers: { cookie: cookieString },
       },
       "get"
     );
