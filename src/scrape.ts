@@ -6,7 +6,6 @@ import { connect } from "puppeteer-real-browser";
 import type { Page } from "rebrowser-puppeteer-core";
 
 mkdirSync(join(resolve(), "stream"), { recursive: true });
-
 try {
   unlinkSync(join(resolve(), "response.html"));
 } catch (_) {}
@@ -44,8 +43,7 @@ async function getCloudflareSession(url: string) {
   });
 
   const screenshotInterval = setInterval(
-    async () =>
-      await page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
+    () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
     1000
   );
 
@@ -55,10 +53,10 @@ async function getCloudflareSession(url: string) {
       window.confirm = () => true;
       window.prompt = () => "";
     });
-    
+
     await page.goto(url, { waitUntil: "domcontentloaded" });
-    const bypassed = await waitForCloudflareBypass(page);
-    if (!bypassed) throw new Error("Failed to bypass Cloudflare protection");
+    if (!(await waitForCloudflareBypass(page)))
+      throw new Error("Failed to bypass Cloudflare protection");
 
     const cookies = await page.cookies();
     const headers = await page.evaluate(() => ({
@@ -95,7 +93,6 @@ try {
   );
 
   log("Response status:", response.status);
-
   if (response.status === 200) {
     writeFileSync("response.html", response.body.toString());
     log("Response saved to response.html");
