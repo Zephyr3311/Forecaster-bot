@@ -12,7 +12,11 @@ try {
 } catch (error) {}
 
 async function getCloudflareSession(url: string) {
-  const { browser } = await connect({});
+  const { browser } = await connect({
+    turnstile: true,
+    connectOption: { defaultViewport: null },
+    disableXvfb: false,
+  });
 
   mkdirSync(join(resolve(), "stream"), { recursive: true });
   setInterval(
@@ -29,21 +33,6 @@ async function getCloudflareSession(url: string) {
       try {
         await dialog.accept();
       } catch {}
-    });
-
-    const acceptLanguage = await page.evaluate(async () => {
-      try {
-        const res = await fetch("https://httpbin.org/get").then((r) =>
-          r.json()
-        );
-        return (
-          res.headers["Accept-Language"] ||
-          res.headers["accept-language"] ||
-          null
-        );
-      } catch {
-        return null;
-      }
     });
 
     const timeoutId = setTimeout(() => {
