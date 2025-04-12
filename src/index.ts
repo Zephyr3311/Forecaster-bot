@@ -2,7 +2,6 @@ import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
 import { eq } from "drizzle-orm";
 import { writeFileSync } from "fs";
-import { getClobClient, getWallet } from "./constants";
 import { db } from "./db";
 import {
   marketSchema,
@@ -12,6 +11,7 @@ import {
   tokenSchema,
 } from "./db/schema";
 import type { Market } from "./types/markets";
+import { getClobClient, getWallet } from "./web3";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
