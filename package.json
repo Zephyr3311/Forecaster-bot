@@ -13,15 +13,16 @@
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
     "alchemy-sdk": "^3.5.6",
-    "cheerio": "^1.0.0",
     "cycletls": "^1.0.27",
     "drizzle-orm": "^0.41.0",
     "ethers": "^6.13.5",
+    "jsdom": "^26.0.0",
     "puppeteer-real-browser": "^1.4.2"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "latest",
     "@types/bun": "latest",
+    "@types/jsdom": "latest",
     "@types/node": "latest",
     "drizzle-kit": "^0.30.6",
     "postgres": "^3.4.5"
