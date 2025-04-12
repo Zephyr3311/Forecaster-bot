@@ -50,19 +50,31 @@ async function getCloudflareSession(url: string) {
   );
 
   try {
+    await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.evaluate(() => {
       window.alert = () => {};
       window.confirm = () => true;
       window.prompt = () => "";
     });
 
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await new Promise((r) => setTimeout(r, 5000));
     if (!(await waitForCloudflareBypass(page)))
       throw new Error("Failed to bypass Cloudflare protection");
 
     const cookies = await page.cookies();
     const headers = await page.evaluate(() => ({
       "user-agent": navigator.userAgent,
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "accept-language": navigator.language,
+      "sec-ch-ua": navigator.userAgent.includes("Chrome")
+        ? `"Google Chrome";v="${
+            navigator.userAgent.match(/Chrome\/(\d+)/)?.[1] || ""
+          }"`
+        : "",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": `"${navigator.platform}"`,
+      "upgrade-insecure-requests": "1",
     }));
 
     return { cookies, headers };
@@ -87,7 +99,10 @@ try {
     "https://lmarena.ai/",
     {
       userAgent: session.headers["user-agent"],
-      headers: { cookie: cookieString },
+      headers: {
+        ...session.headers,
+        cookie: cookieString,
+      },
     },
     "get"
   );

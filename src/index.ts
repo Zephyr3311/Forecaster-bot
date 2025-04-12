@@ -11,6 +11,7 @@ import {
   rewardSchema,
   tokenSchema,
 } from "./db/schema";
+import type { Market } from "./types/markets";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
