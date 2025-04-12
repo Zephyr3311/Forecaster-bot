@@ -1,11 +1,11 @@
 services:
   polybot:
     container_name: polybot
-    # network_mode: service:disboard-scrape-vpn
+    # network_mode: service:polybot-vpn
     # depends_on:
-    #   - disboard-scrape-db
-    #   - disboard-scrape-vpn
-    #   - disboard-scrape-pgbackup
+    #   - polybot-db
+    #   - polybot-vpn
+    #   - polybot-pgbackup
     build:
       context: ./
       dockerfile: Dockerfile
@@ -14,34 +14,36 @@ services:
     volumes:
       - ~/polybot-stream/:/app/stream
     #   - /var/run/docker.sock:/var/run/docker.sock
-    # environment:
-    #   - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5434/${POSTGRES_DB}?schema=public
-    #   - RUNNER=${RUNNER}
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?schema=public
+      - PK=${PK}
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+      - CLOB_API_KEY=${CLOB_API_KEY}
+      - CLOB_SECRET=${CLOB_SECRET}
+      - CLOB_PASS_PHRASE=${CLOB_PASS_PHRASE}
     shm_size: "8gb"
 
-  disboard-scrape-db:
-    container_name: disboard-scrape-db
+  polybot-db:
+    container_name: polybot-db
     image: postgres:latest
     restart: always
-    network_mode: bridge
-    volumes:
-      - ~/duplicati-volume/source/disboard-scrape-db-pgbackup:/backups
+    # network_mode: bridge
     ports:
-      - 5434:5432
+      - 5435:5432
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 
-  # disboard-scrape-pgbackup:
-  #   container_name: disboard-scrape-pgbackup
+  # polybot-pgbackup:
+  #   container_name: polybot-pgbackup
   #   image: prodrigestivill/postgres-backup-local
   #   restart: always
   #   network_mode: bridge
   #   volumes:
-  #     - ~/duplicati-volume/source/disboard-scrape-db-pgbackup:/backups
+  #     - ~/duplicati-volume/source/polybot-db-pgbackup:/backups
   #   depends_on:
-  #     - disboard-scrape-db
+  #     - polybot-db
   #   environment:
   #     - POSTGRES_HOST=host.docker.internal
   #     - POSTGRES_PORT=5434
@@ -58,10 +60,8 @@ services:
   #   extra_hosts:
   #     - "host.docker.internal:host-gateway"
 
-
-
-  # disboard-scrape-vpn:
-  #   container_name: disboard-scrape-vpn
+  # polybot-vpn:
+  #   container_name: polybot-vpn
   #   restart: always
   #   network_mode: bridge
   #   image: qmcgaw/gluetun
