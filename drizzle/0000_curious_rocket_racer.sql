@@ -9,7 +9,8 @@ CREATE TABLE "llm_leaderboard" (
 	"organization" text NOT NULL,
 	"license" text NOT NULL,
 	"created_at" timestamp DEFAULT now(),
-	"updated_at" timestamp DEFAULT now()
+	"updated_at" timestamp DEFAULT now(),
+	CONSTRAINT "llm_leaderboard_model_unique" UNIQUE("model")
 );
 --> statement-breakpoint
 CREATE TABLE "market" (

@@ -1,5 +1,5 @@
 {
-  "id": "1ab37478-7da3-4bcc-96fa-091e5bbcadde",
+  "id": "6f8b4abe-c0c2-4e66-8db6-20a0de0365dc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -80,7 +80,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "llm_leaderboard_model_unique": {
+          "name": "llm_leaderboard_model_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "model"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
