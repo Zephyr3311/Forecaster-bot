@@ -1,4 +1,4 @@
-interface Market {
+export interface Market {
   enable_order_book: boolean;
   active: boolean;
   closed: boolean;

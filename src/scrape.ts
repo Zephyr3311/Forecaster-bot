@@ -5,6 +5,7 @@ import { mkdirSync, unlinkSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { connect } from "puppeteer-real-browser";
 import type { Page } from "rebrowser-puppeteer-core";
+import type { GradioConfig } from "./types/gradio";
 
 mkdirSync(join(resolve(), "stream"), { recursive: true });
 try {
@@ -102,7 +103,20 @@ try {
       .text()
       .replace("window.gradio_config = ", "")
       .slice(0, -1);
-    writeFileSync("config.json", script);
+
+    const gradioConfig = JSON.parse(script) as GradioConfig;
+
+    const leaderboardsData = gradioConfig.components.filter(
+      (comp) =>
+        comp.props.elem_id === "arena_leaderboard_dataframe" &&
+        comp.props.value.data.length > 50
+    )[0]!;
+    const leaderboard = leaderboardsData.props.value.data.map((row) =>
+      Object.fromEntries(
+        leaderboardsData.props.value.headers.map((h, i) => [h, row[i]])
+      )
+    );
+    writeFileSync("config.json", JSON.stringify(leaderboard));
     writeFileSync("response.html", html);
     log("Response saved to response.html");
   }
