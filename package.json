@@ -3,6 +3,8 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
+    "start": "bun --bun run dist/index.js",
+    "start-scrape": "bun --bun run dist/scrape.js",
     "build": "bun build src/index.ts --outdir=dist --minify --target=bun",
     "build-scrape": "bun build src/scrape.ts --outdir=dist --minify --target=bun",
     "dev": "bun --bun --watch src/index.ts",
