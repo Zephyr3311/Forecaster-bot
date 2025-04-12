@@ -1,5 +1,5 @@
 {
-  "id": "4115b006-21aa-4b1b-a969-7b4ed269dc60",
+  "id": "1ab37478-7da3-4bcc-96fa-091e5bbcadde",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -20,15 +20,21 @@
           "primaryKey": false,
           "notNull": true
         },
+        "rank_style_ctrl": {
+          "name": "rank_style_ctrl",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "model": {
           "name": "model",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "arena_score": {
-          "name": "arena_score",
-          "type": "numeric(10, 2)",
+        "arenaScore": {
+          "name": "arenaScore",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },

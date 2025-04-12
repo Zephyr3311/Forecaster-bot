@@ -11,9 +11,10 @@ import {
 
 export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
   id: serial("id").primaryKey(),
-  rank: integer("rank_ub").notNull(),
+  rankUb: integer("rank_ub").notNull(),
+  rankStyleCtrl: integer("rank_style_ctrl").notNull(),
   model: text("model").notNull(),
-  arenaScore: decimal("arena_score", { precision: 10, scale: 2 }).notNull(),
+  arenaScore: integer().notNull(),
   ci: text("ci").notNull(),
   votes: integer("votes").notNull(),
   organization: text("organization").notNull(),

@@ -3,6 +3,8 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { JSDOM } from "jsdom";
 import { join, resolve } from "path";
 import { connect } from "puppeteer-real-browser";
+import { conflictUpdateAllExcept, db } from "./db";
+import { llmLeaderboardSchema } from "./db/schema";
 import { cycleTLS, waitForCloudflareBypass } from "./puppeteer";
 import type { GradioConfig, LlmArenaLeaderboard } from "./types/gradio";
 
@@ -86,9 +88,21 @@ function getLeaderboard(html: string) {
     Object.fromEntries(
       leaderboardsData.props.value.headers.map((h, i) => [h, row[i]])
     )
-  );
+  ) as unknown as LlmArenaLeaderboard[];
 
-  return leaderboard as unknown as LlmArenaLeaderboard[];
+  const llmLeadeboard: (typeof llmLeaderboardSchema.$inferInsert)[] =
+    leaderboard.map((entry) => ({
+      rankUb: entry["Rank* (UB)"],
+      rankStyleCtrl: entry["Rank (StyleCtrl)"],
+      model: entry["Model"],
+      arenaScore: entry["Arena Score"],
+      ci: entry["95% CI"],
+      votes: entry["Votes"],
+      organization: entry["Organization"],
+      license: entry["License"],
+    }));
+
+  return llmLeadeboard;
 }
 
 async function main() {
@@ -120,6 +134,13 @@ async function main() {
 
       if (response.status === 200) {
         const leaderboard = getLeaderboard(response.body.toString());
+        await db
+          .insert(llmLeaderboardSchema)
+          .values(leaderboard)
+          .onConflictDoUpdate({
+            target: [llmLeaderboardSchema.model],
+            set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
+          });
         writeFileSync(LEADERBOARD_FILE, JSON.stringify(leaderboard, null, 2));
         log(`Leaderboard updated with ${leaderboard.length} entries`);
         failureCount = 0;

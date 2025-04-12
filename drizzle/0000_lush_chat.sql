@@ -1,8 +1,9 @@
 CREATE TABLE "llm_leaderboard" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"rank_ub" integer NOT NULL,
+	"rank_style_ctrl" integer NOT NULL,
 	"model" text NOT NULL,
-	"arena_score" numeric(10, 2) NOT NULL,
+	"arenaScore" integer NOT NULL,
 	"ci" text NOT NULL,
 	"votes" integer NOT NULL,
 	"organization" text NOT NULL,
