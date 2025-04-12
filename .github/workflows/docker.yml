@@ -21,7 +21,7 @@ jobs:
           echo POSTGRES_HOST=${{ secrets.POSTGRES_HOST }} >> .env
           echo POSTGRES_DB=${{ secrets.POSTGRES_DB }} >> .env
 
-          echo PK=${{ secrets.DISBOARD_SPKCRAPE_DB }} >> .env
+          echo PK=${{ secrets.PK }} >> .env
           echo ALCHEMY_API_KEY=${{ secrets.ALCHEMY_API_KEY }} >> .env
 
           echo CLOB_API_KEY=${{ secrets.CLOB_API_KEY }} >> .env
