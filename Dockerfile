@@ -49,4 +49,4 @@ COPY --from=builder /app/node_modules ./node_modules
 
 RUN npx puppeteer browsers install chrome
 
-CMD ["bun", "start"]
+CMD ["bun", "start-scrape"]
