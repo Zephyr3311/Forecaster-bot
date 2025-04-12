@@ -15,7 +15,7 @@ services:
       - ~/polybot-stream/:/app/stream
     #   - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}
       - PK=${PK}
       - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
       - CLOB_API_KEY=${CLOB_API_KEY}
