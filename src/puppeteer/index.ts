@@ -4,9 +4,6 @@ import { join, resolve } from "path";
 import type { Page } from "rebrowser-puppeteer-core";
 
 mkdirSync(join(resolve(), "stream"), { recursive: true });
-try {
-  unlinkSync(join(resolve(), "response.html"));
-} catch (_) {}
 
 export const cycleTLS = await initCycleTLS();
 

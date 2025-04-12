@@ -1,0 +1,79 @@
+services:
+  disboard-scrape:
+    container_name: disboard-scrape
+    network_mode: service:disboard-scrape-vpn
+    depends_on:
+      - disboard-scrape-db
+      - disboard-scrape-vpn
+      - disboard-scrape-pgbackup
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: prod
+    restart: always
+    volumes:
+      - ~/disboard-scrape-stream/:/app/stream
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5434/${POSTGRES_DB}?schema=public
+      - RUNNER=${RUNNER}
+    shm_size: "8gb"
+
+  disboard-scrape-pgbackup:
+    container_name: disboard-scrape-pgbackup
+    image: prodrigestivill/postgres-backup-local
+    restart: always
+    network_mode: bridge
+    volumes:
+      - ~/duplicati-volume/source/disboard-scrape-db-pgbackup:/backups
+    depends_on:
+      - disboard-scrape-db
+    environment:
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT=5434
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - BACKUP_KEEP_WEEKS=1
+      - BACKUP_KEEP_MONTHS=0
+      - POSTGRES_EXTRA_OPTS=-Fc
+      - SCHEDULE=@every 24h
+      - BACKUP_KEEP_DAYS=1
+      - HEALTHCHECK_PORT=8080
+      - BACKUP_ON_START=TRUE
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  disboard-scrape-db:
+    container_name: disboard-scrape-db
+    image: postgres:latest
+    restart: always
+    network_mode: bridge
+    volumes:
+      - ~/duplicati-volume/source/disboard-scrape-db-pgbackup:/backups
+    ports:
+      - 5434:5432
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_MAX_CONNECTIONS=10000
+
+  disboard-scrape-vpn:
+    container_name: disboard-scrape-vpn
+    restart: always
+    network_mode: bridge
+    image: qmcgaw/gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - OPENVPN_CIPHERS=AES-256-GCM
+      - LOG_LEVEL=debug
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

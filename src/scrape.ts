@@ -127,8 +127,6 @@ async function main() {
         error(`Failed with status: ${response.status}`);
         failureCount++;
       }
-
-      await new Promise((r) => setTimeout(r, 100));
     } catch (err) {
       error("Error:", err);
       failureCount++;
