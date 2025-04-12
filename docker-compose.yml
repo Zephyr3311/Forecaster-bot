@@ -11,8 +11,8 @@ services:
       dockerfile: Dockerfile
       target: prod
     restart: always
-    # volumes:
-    #   - ~/disboard-scrape-stream/:/app/stream
+    volumes:
+      - ~/polybot-stream/:/app/stream
     #   - /var/run/docker.sock:/var/run/docker.sock
     # environment:
     #   - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5434/${POSTGRES_DB}?schema=public
