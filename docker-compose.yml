@@ -25,7 +25,7 @@ services:
 
   polybot-db:
     container_name: polybot-db
-    image: postgres:latest
+    image: postgres:16-alpine
     restart: always
     # network_mode: bridge
     ports:
