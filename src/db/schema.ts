@@ -9,6 +9,19 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
+export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
+  id: serial("id").primaryKey(),
+  rank: integer("rank_ub").notNull(),
+  model: text("model").notNull(),
+  arenaScore: decimal("arena_score", { precision: 10, scale: 2 }).notNull(),
+  ci: text("ci").notNull(),
+  votes: integer("votes").notNull(),
+  organization: text("organization").notNull(),
+  license: text("license").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const marketSchema = pgTable("market", {
   id: serial("id").primaryKey(),
   conditionId: text("condition_id").notNull(),
