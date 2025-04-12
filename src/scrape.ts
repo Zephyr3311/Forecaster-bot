@@ -4,7 +4,7 @@ import { JSDOM } from "jsdom";
 import { join, resolve } from "path";
 import { connect } from "puppeteer-real-browser";
 import { cycleTLS, waitForCloudflareBypass } from "./puppeteer";
-import type { GradioConfig } from "./types/gradio";
+import type { GradioConfig, LlmArenaLeaderboard } from "./types/gradio";
 
 const SESSION_FILE = join(resolve(), "cloudflare_session.json");
 
@@ -100,7 +100,7 @@ try {
       Object.fromEntries(
         leaderboardsData.props.value.headers.map((h, i) => [h, row[i]])
       )
-    );
+    ) as unknown as LlmArenaLeaderboard[];
 
     writeFileSync("config.json", JSON.stringify(leaderboard, null, 2));
     writeFileSync("response.html", html);
