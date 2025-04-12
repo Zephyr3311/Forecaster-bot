@@ -128,13 +128,19 @@ async function main() {
         failureCount++;
       }
 
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 100));
     } catch (err) {
       error("Error:", err);
       failureCount++;
     }
   }
 }
+
+process.on("SIGINT", async () => {
+  log("Shutting down...");
+  await cycleTLS.exit();
+  process.exit(0);
+});
 
 main().catch((err) => {
   error("Fatal error:", err);
