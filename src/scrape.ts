@@ -1,5 +1,5 @@
 import { error, log } from "console";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { JSDOM } from "jsdom";
 import { join, resolve } from "path";
 import { connect } from "puppeteer-real-browser";
@@ -7,6 +7,7 @@ import { cycleTLS, waitForCloudflareBypass } from "./puppeteer";
 import type { GradioConfig, LlmArenaLeaderboard } from "./types/gradio";
 
 const SESSION_FILE = join(resolve(), "session.json");
+const LEADERBOARD_FILE = join(resolve(), "leaderboard.json");
 
 async function getCloudflareSession(url: string) {
   const { browser, page } = await connect({
@@ -58,7 +59,7 @@ async function getSession(url: string) {
     try {
       log("Using existing Cloudflare session...");
       const sessionData = JSON.parse(readFileSync(SESSION_FILE, "utf8"));
-      return sessionData as ReturnType<typeof getCloudflareSession>;
+      return sessionData;
     } catch (err) {
       log("Error reading session file, getting new session...");
     }
@@ -73,39 +74,69 @@ async function getSession(url: string) {
   return session;
 }
 
-try {
-  const session = await getSession("https://lmarena.ai");
-
-  const response = await cycleTLS(
-    "https://lmarena.ai",
-    {
-      userAgent: session.headers["user-agent"],
-      headers: { ...session.headers, cookie: session.cookie },
-    },
-    "get"
+function getLeaderboard(html: string) {
+  const dom = new JSDOM(html, { runScripts: "dangerously" });
+  const gradioConfig = dom.window.gradio_config as GradioConfig;
+  const leaderboardsData = gradioConfig.components.filter(
+    (comp) =>
+      comp.props.elem_id === "arena_leaderboard_dataframe" &&
+      comp.props.value.data.length > 50
+  )[0]!;
+  const leaderboard = leaderboardsData.props.value.data.map((row) =>
+    Object.fromEntries(
+      leaderboardsData.props.value.headers.map((h, i) => [h, row[i]])
+    )
   );
 
-  log("Response status:", response.status);
-  if (response.status === 200) {
-    const html = response.body.toString();
-    const dom = new JSDOM(html, { runScripts: "dangerously" });
-    const gradioConfig = dom.window.gradio_config as GradioConfig;
-    const leaderboardsData = gradioConfig.components.filter(
-      (comp) =>
-        comp.props.elem_id === "arena_leaderboard_dataframe" &&
-        comp.props.value.data.length > 50
-    )[0]!;
-    const leaderboard = leaderboardsData.props.value.data.map((row) =>
-      Object.fromEntries(
-        leaderboardsData.props.value.headers.map((h, i) => [h, row[i]])
-      )
-    ) as unknown as LlmArenaLeaderboard[];
-
-    writeFileSync("config.json", JSON.stringify(leaderboard, null, 2));
-    writeFileSync("response.html", html);
-  }
-
-  await cycleTLS.exit();
-} catch (err) {
-  error("Error:", err);
+  return leaderboard as unknown as LlmArenaLeaderboard[];
 }
+
+async function main() {
+  let failureCount = 0;
+
+  while (true) {
+    try {
+      if (failureCount >= 3) {
+        log("3 failures in a row, forcing new session");
+        if (existsSync(SESSION_FILE)) {
+          unlinkSync(SESSION_FILE);
+          log("Deleted existing session file");
+        }
+        failureCount = 0;
+      }
+
+      const session = await getSession("https://lmarena.ai");
+
+      const response = await cycleTLS(
+        "https://lmarena.ai",
+        {
+          userAgent: session.headers["user-agent"],
+          headers: { ...session.headers, cookie: session.cookie },
+        },
+        "get"
+      );
+
+      log(`Response status: ${response.status}`);
+
+      if (response.status === 200) {
+        const leaderboard = getLeaderboard(response.body.toString());
+        writeFileSync(LEADERBOARD_FILE, JSON.stringify(leaderboard, null, 2));
+        log(`Leaderboard updated with ${leaderboard.length} entries`);
+        failureCount = 0;
+      } else {
+        error(`Failed with status: ${response.status}`);
+        failureCount++;
+      }
+
+      await new Promise((r) => setTimeout(r, 1000));
+    } catch (err) {
+      error("Error:", err);
+      failureCount++;
+    }
+  }
+}
+
+main().catch((err) => {
+  error("Fatal error:", err);
+  cycleTLS.exit().finally(() => process.exit(1));
+});
