@@ -2,8 +2,8 @@ services:
   polybot:
     container_name: polybot
     # network_mode: service:polybot-vpn
-    # depends_on:
-    #   - polybot-db
+    depends_on:
+      - polybot-db
     #   - polybot-vpn
     #   - polybot-pgbackup
     build:
