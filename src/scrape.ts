@@ -1,24 +1,14 @@
 import { error, log } from "console";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { JSDOM } from "jsdom";
 import { join, resolve } from "path";
 import { connect } from "puppeteer-real-browser";
 import { cycleTLS, waitForCloudflareBypass } from "./puppeteer";
 import type { GradioConfig } from "./types/gradio";
+
 const SESSION_FILE = join(resolve(), "cloudflare_session.json");
-mkdirSync(join(resolve(), "stream"), { recursive: true });
-try {
-  unlinkSync(join(resolve(), "response.html"));
-} catch (_) {}
 
 async function getCloudflareSession(url: string) {
-  // Same as original
   const { browser, page } = await connect({
     turnstile: true,
     connectOption: { defaultViewport: null },
