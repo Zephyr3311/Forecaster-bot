@@ -1,5 +1,5 @@
 import initCycleTLS from "cycletls";
-import { mkdirSync, unlinkSync } from "fs";
+import { mkdirSync } from "fs";
 import { join, resolve } from "path";
 import type { Page } from "rebrowser-puppeteer-core";
 
@@ -8,7 +8,6 @@ mkdirSync(join(resolve(), "stream"), { recursive: true });
 export const cycleTLS = await initCycleTLS();
 
 export async function waitForCloudflareBypass(page: Page) {
-  // Same as original
   const startTime = Date.now();
   const isChallenged = () =>
     page
