@@ -19,7 +19,9 @@ export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
   organization: text("organization").notNull(),
   license: text("license").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const marketSchema = pgTable("market", {

@@ -1,3 +1,16 @@
+CREATE TABLE "llm_leaderboard" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"rank_ub" integer NOT NULL,
+	"model" text NOT NULL,
+	"arena_score" numeric(10, 2) NOT NULL,
+	"ci" text NOT NULL,
+	"votes" integer NOT NULL,
+	"organization" text NOT NULL,
+	"license" text NOT NULL,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
 CREATE TABLE "market" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"condition_id" text NOT NULL,
