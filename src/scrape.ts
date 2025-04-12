@@ -104,7 +104,6 @@ try {
 
     writeFileSync("config.json", JSON.stringify(leaderboard, null, 2));
     writeFileSync("response.html", html);
-    log("Response saved to response.html");
   }
 
   await cycleTLS.exit();
