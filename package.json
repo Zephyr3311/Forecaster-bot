@@ -11,7 +11,7 @@
     "scrape": "bun --bun run src/scrape.ts",
     "drizzle": "bun run reset & drizzle-kit generate",
     "reset": "bun ./drizzle/reset-db.ts",
-    "gen": "bun --bun run src/generate-key.ts"
+    "gen": "bun --bun run src/utils/generate-key.ts"
   },
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
