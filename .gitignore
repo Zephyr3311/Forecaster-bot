@@ -39,4 +39,4 @@ markets.json
 *.html
 page.jpg
 config.json
-cloudflare_session.json
+session.json

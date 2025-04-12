@@ -6,7 +6,7 @@ import { connect } from "puppeteer-real-browser";
 import { cycleTLS, waitForCloudflareBypass } from "./puppeteer";
 import type { GradioConfig, LlmArenaLeaderboard } from "./types/gradio";
 
-const SESSION_FILE = join(resolve(), "cloudflare_session.json");
+const SESSION_FILE = join(resolve(), "session.json");
 
 async function getCloudflareSession(url: string) {
   const { browser, page } = await connect({
@@ -74,10 +74,10 @@ async function getSession(url: string) {
 }
 
 try {
-  const session = await getSession("https://lmarena.ai/");
+  const session = await getSession("https://lmarena.ai");
 
   const response = await cycleTLS(
-    "https://lmarena.ai/",
+    "https://lmarena.ai",
     {
       userAgent: session.headers["user-agent"],
       headers: { ...session.headers, cookie: session.cookie },
