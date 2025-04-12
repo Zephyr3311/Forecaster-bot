@@ -20,13 +20,13 @@ async function getCloudflareSession(url: string) {
   );
 
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-
     await page.evaluate(() => {
       window.alert = () => {};
       window.confirm = () => true;
       window.prompt = () => "";
     });
+
+    await page.goto(url, { waitUntil: "domcontentloaded" });
 
     await new Promise((r) => setTimeout(r, 500));
     if (!(await waitForCloudflareBypass(page)))
@@ -42,7 +42,11 @@ async function getCloudflareSession(url: string) {
         : "",
     }));
 
-    return { cookies, headers };
+    const cookie = cookies
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+
+    return { cookie, headers };
   } finally {
     clearInterval(screenshotInterval);
     await browser.close().catch(() => {});
@@ -72,16 +76,11 @@ async function getSession(url: string) {
 try {
   const session = await getSession("https://lmarena.ai/");
 
-  log("Session obtained, cookies:", session.cookies.length);
-  const cookie = session.cookies
-    .map((cookie) => `${cookie.name}=${cookie.value}`)
-    .join("; ");
-
   const response = await cycleTLS(
     "https://lmarena.ai/",
     {
       userAgent: session.headers["user-agent"],
-      headers: { ...session.headers, cookie },
+      headers: { ...session.headers, cookie: session.cookie },
     },
     "get"
   );
@@ -110,5 +109,3 @@ try {
 } catch (err) {
   error("Error:", err);
 }
-
-process.exit(0);
