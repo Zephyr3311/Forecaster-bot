@@ -16,8 +16,6 @@ import { getClobClient, getWallet } from "./utils/web3";
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
 
-log(`Bot Wallet Address: ${await wallet.getAddress()}`);
-
 async function getAllMarkets(): Promise<Market[]> {
   const allMarkets = [];
   let nextCursor = "MA=="; // Initial cursor
