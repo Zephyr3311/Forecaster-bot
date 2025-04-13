@@ -38,6 +38,7 @@ async function getAllMarkets(): Promise<Market[]> {
 
   return allMarkets;
 }
+
 async function upsertMarkets(marketsList: Market[]) {
   log(
     `Start inserting ${marketsList.length} markets into database...`,
