@@ -1,7 +1,7 @@
 import "@dotenvx/dotenvx/config";
 import { Wallet } from "@ethersproject/wallet";
 import { log } from "console";
-import { getClobClient } from "../web3";
+import { getClobClient } from "./web3";
 
 const wallet = Wallet.createRandom();
 const clobClient = getClobClient(wallet);

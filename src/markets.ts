@@ -11,7 +11,7 @@ import {
   tokenSchema,
 } from "./db/schema";
 import type { Market } from "./types/markets";
-import { getClobClient, getWallet } from "./web3";
+import { getClobClient, getWallet } from "./utils/web3";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
