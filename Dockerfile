@@ -21,7 +21,7 @@ RUN bun run build-scrape
 
 # Production image, copy only production files
 # Stage 2
-FROM imbios/bun-node AS prod
+FROM imbios/bun-node AS llm-leaderboard
 
 USER root
 
