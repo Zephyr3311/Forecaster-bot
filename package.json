@@ -3,12 +3,15 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
+    "start-llm-bot": "bun --bun run dist/llm-bot.js",
     "start-markets": "bun --bun run dist/markets.js",
     "start-llm-leaderboard": "bun --bun run dist/llm-leaderboard.js",
     "build-markets": "bun build src/markets.ts --outdir=dist --minify --target=bun",
     "build-llm-leaderboard": "bun build src/llm-leaderboard.ts --outdir=dist --minify --target=bun",
+    "build-llm-bot": "bun build src/llm-bot.ts --outdir=dist --minify --target=bun",
     "markets": "bun --bun --watch src/markets.ts",
     "llm-leaderboard": "bun --bun run src/llm-leaderboard.ts",
+    "llm-bot": "bun --bun run src/llm-bot.ts",
     "drizzle": "bun run reset & drizzle-kit generate",
     "reset": "bun ./drizzle/reset-db.ts",
     "gen": "bun --bun run src/utils/generate-key.ts"
