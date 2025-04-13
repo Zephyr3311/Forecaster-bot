@@ -56,6 +56,5 @@ WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/node_modules ./node_modules
 
 CMD ["bun", "--bun", "dist/markets.js"]
