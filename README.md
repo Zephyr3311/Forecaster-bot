@@ -1,6 +1,6 @@
 # polybot
 
-To install dependencies:
+To install dependencies:as
 
 ```bash
 bun install
