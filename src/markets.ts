@@ -189,9 +189,11 @@ async function upsertMarkets(marketsList: Market[]) {
 }
 
 try {
-  const allMarkets = await getAllMarkets();
-  await upsertMarkets(allMarkets);
-  writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
+  while (true) {
+    const allMarkets = await getAllMarkets();
+    await upsertMarkets(allMarkets);
+    writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
+  }
 } catch (err) {
   error("Error:", err);
 }

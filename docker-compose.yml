@@ -1,11 +1,8 @@
 services:
   polybot-llm-leaderboard:
     container_name: polybot-llm-leaderboard
-    # network_mode: service:polybot-vpn
     depends_on:
       - polybot-db
-    #   - polybot-vpn
-    #   - polybot-pgbackup
     build:
       context: ./
       dockerfile: Dockerfile
@@ -13,7 +10,18 @@ services:
     restart: always
     volumes:
       - ~/polybot-stream/:/app/stream
-    #   - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}
+    shm_size: "8gb"
+  polybot-markets:
+    container_name: polybot-markets
+    depends_on:
+      - polybot-db
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: markets
+    restart: always
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}
       - PK=${PK}
@@ -21,60 +29,13 @@ services:
       - CLOB_API_KEY=${CLOB_API_KEY}
       - CLOB_SECRET=${CLOB_SECRET}
       - CLOB_PASS_PHRASE=${CLOB_PASS_PHRASE}
-    shm_size: "8gb"
-
   polybot-db:
     container_name: polybot-db
     image: postgres:16-alpine
     restart: always
-    # network_mode: bridge
     ports:
       - 5436:5432
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-
-  # polybot-pgbackup:
-  #   container_name: polybot-pgbackup
-  #   image: prodrigestivill/postgres-backup-local
-  #   restart: always
-  #   network_mode: bridge
-  #   volumes:
-  #     - ~/duplicati-volume/source/polybot-db-pgbackup:/backups
-  #   depends_on:
-  #     - polybot-db
-  #   environment:
-  #     - POSTGRES_HOST=host.docker.internal
-  #     - POSTGRES_PORT=5434
-  #     - POSTGRES_DB=${POSTGRES_DB}
-  #     - POSTGRES_USER=${POSTGRES_USER}
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-  #     - BACKUP_KEEP_WEEKS=1
-  #     - BACKUP_KEEP_MONTHS=0
-  #     - POSTGRES_EXTRA_OPTS=-Fc
-  #     - SCHEDULE=@every 24h
-  #     - BACKUP_KEEP_DAYS=1
-  #     - HEALTHCHECK_PORT=8080
-  #     - BACKUP_ON_START=TRUE
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-
-  # polybot-vpn:
-  #   container_name: polybot-vpn
-  #   restart: always
-  #   network_mode: bridge
-  #   image: qmcgaw/gluetun
-  #   cap_add:
-  #     - NET_ADMIN
-  #   devices:
-  #     - /dev/net/tun:/dev/net/tun
-  #   environment:
-  #     - VPN_SERVICE_PROVIDER=mullvad
-  #     - VPN_TYPE=openvpn
-  #     - OPENVPN_USER=${OPENVPN_USER}
-  #     - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
-  #     - OPENVPN_CIPHERS=AES-256-GCM
-  #     - LOG_LEVEL=debug
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"

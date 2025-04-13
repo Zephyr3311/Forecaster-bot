@@ -19,8 +19,6 @@ RUN bun run build-scrape
 #############################################
 
 
-# Production image, copy only production files
-# Stage 2
 FROM imbios/bun-node AS llm-leaderboard
 
 USER root
@@ -49,4 +47,13 @@ COPY --from=builder /app/node_modules ./node_modules
 
 RUN npx puppeteer browsers install chrome
 
-CMD ["bun", "--bun", "dist/scrape.js"]
+CMD ["bun", "--bun", "dist/llm-leaderboard.js"]
+
+FROM imbios/bun-node AS markets
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/drizzle ./drizzle
+
+CMD ["bun", "--bun", "dist/markets.js"]
