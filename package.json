@@ -3,9 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "start-llm-bot": "bun --bun run dist/llm-bot.js",
-    "start-markets": "bun --bun run dist/markets.js",
-    "start-llm-leaderboard": "bun --bun run dist/llm-leaderboard.js",
+    "start-llm-bot": "bun --bun dist/llm-bot.js",
+    "start-markets": "bun --bun dist/markets.js",
+    "start-llm-leaderboard": "bun --bun dist/llm-leaderboard.js",
     "build-markets": "bun build src/markets.ts --outdir=dist --minify --target=bun",
     "build-llm-leaderboard": "bun build src/llm-leaderboard.ts --outdir=dist --minify --target=bun",
     "build-llm-bot": "bun build src/llm-bot.ts --outdir=dist --minify --target=bun",
