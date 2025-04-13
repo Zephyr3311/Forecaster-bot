@@ -9,6 +9,16 @@ export type LlmArenaLeaderboard = {
   License: string;
 };
 
+export interface GradioResult {
+  data: {
+    value: {
+      data: any[][];
+    };
+    headers: string[];
+  }[];
+}
+
+
 export type GradioConfig = {
   version: string;
   mode: string;
