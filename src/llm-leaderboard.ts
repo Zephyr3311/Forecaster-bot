@@ -6,8 +6,11 @@ import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
 import {
   checkIfWorkingElseRestart,
+  gracefulShutdown,
   LEADERBOARD_FILE,
   LLM_ARENA_URL,
+  restartContainer,
+  VPN_CONATAINER_NAME,
 } from "./puppeteer";
 import type { GradioResult, LlmArenaLeaderboard } from "./types/gradio";
 
@@ -27,6 +30,8 @@ async function main() {
   await page.goto(LLM_ARENA_URL, { waitUntil: "networkidle2" });
 
   page.on("dialog", async (dialog) => await dialog.accept().catch(() => {}));
+
+  let emptyLeaderboardCount = 0;
 
   while (true) {
     const leaderboard = (await page.evaluate(async () => {
@@ -60,6 +65,7 @@ async function main() {
     log("Fetched leaderboard entries:", leaderboard.length);
 
     if (leaderboard.length) {
+      emptyLeaderboardCount = 0; // Reset counter when we get data
       const llmLeadeboard: (typeof llmLeaderboardSchema.$inferInsert)[] =
         leaderboard.map((entry) => ({
           rankUb: entry["Rank* (UB)"],
@@ -82,7 +88,17 @@ async function main() {
       log(`Leaderboard updated with ${llmLeadeboard.length} entries`);
       await new Promise((resolve) => setTimeout(resolve, 250));
     } else {
-      log("Empty leaderboard returned");
+      emptyLeaderboardCount++;
+      log(`Empty leaderboard returned (${emptyLeaderboardCount}/10)`);
+
+      if (emptyLeaderboardCount >= 10) {
+        log(
+          "Received 10 consecutive empty leaderboards, restarting VPN container..."
+        );
+        await restartContainer(VPN_CONATAINER_NAME);
+        await gracefulShutdown();
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
