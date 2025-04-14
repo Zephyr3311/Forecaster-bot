@@ -4,7 +4,11 @@ import { writeFileSync } from "fs";
 import { connect } from "puppeteer-real-browser";
 import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
-import { LEADERBOARD_FILE, LLM_ARENA_URL } from "./puppeteer";
+import {
+  checkIfWorkingElseRestart,
+  LEADERBOARD_FILE,
+  LLM_ARENA_URL,
+} from "./puppeteer";
 import type { GradioResult, LlmArenaLeaderboard } from "./types/gradio";
 
 async function main() {
@@ -12,6 +16,8 @@ async function main() {
     turnstile: true,
     connectOption: { defaultViewport: null },
   });
+
+  await checkIfWorkingElseRestart(page);
 
   setInterval(
     () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
