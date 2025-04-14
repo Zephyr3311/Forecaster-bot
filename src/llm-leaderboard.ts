@@ -86,7 +86,7 @@ async function main() {
         });
       writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeadeboard, null, 2));
       log(`Leaderboard updated with ${llmLeadeboard.length} entries`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await new Promise((resolve) => setTimeout(resolve, 400));
     } else {
       emptyLeaderboardCount++;
       log(`Empty leaderboard returned (${emptyLeaderboardCount}/10)`);
