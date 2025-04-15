@@ -11,7 +11,7 @@ import { getClobClient, getWallet } from "./utils/web3";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const currentTime = dayjs().tz("America/New_York");
+const currentTime = dayjs().tz("America/New_York"); // April 30, 2025, 12:00 PM ET.
 const month = currentTime.format("MMM").toLowerCase();
 
 const wallet = getWallet(process.env.PK);

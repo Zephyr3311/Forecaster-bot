@@ -1,6 +1,6 @@
 services:
   polybot-llm-bot:
-    container_name: polybot-markets
+    container_name: polybot-llm-bot
     network_mode: bridge
     depends_on:
       - polybot-db
