@@ -17,6 +17,7 @@ COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 RUN bun run build-llm-leaderboard
 RUN bun run build-markets
+RUN bun run build-llm-bot
 #############################################
 
 
@@ -58,3 +59,12 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/drizzle ./drizzle
 
 CMD ["bun", "--bun", "dist/markets.js"]
+
+FROM imbios/bun-node AS llm-bot
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/drizzle ./drizzle
+
+CMD ["bun", "--bun", "dist/llm-bot.js"]
