@@ -1,9 +1,17 @@
 import { AssetType } from "@polymarket/clob-client";
 import { log } from "console";
-import { ilike } from "drizzle-orm";
+import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import { and, eq, ilike } from "drizzle-orm";
 import { db } from "./db";
 import { marketSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const currentTime = dayjs().tz("America/New_York");
+const month = currentTime.format("MMM").toLowerCase();
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
@@ -20,7 +28,14 @@ const llmMarkets = await db
   .select()
   .from(marketSchema)
   .where(
-    ilike(marketSchema.question, "%which company has best ai model end of%")
+    and(
+      ilike(
+        marketSchema.marketSlug,
+        `%-have-the-top-ai-model-on-${month}%` // will-google-have-the-top-ai-model-on-april-30
+      ),
+      eq(marketSchema.closed, false),
+      eq(marketSchema.active, true)
+    )
   );
 
-console.log(llmMarkets);
+console.log(llmMarkets.map((market) => market.marketSlug));
