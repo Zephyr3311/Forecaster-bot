@@ -39,4 +39,8 @@ const llmMarkets = await db
     )
   );
 
+const openOrders = await clobClient.getOpenOrders();
+
+log(`Open Orders:`, openOrders);
+
 console.log(llmMarkets.map((market) => market.marketSlug));
