@@ -1,5 +1,6 @@
 import { Wallet } from "@ethersproject/wallet";
 import { Chain, ClobClient, type ApiKeyCreds } from "@polymarket/clob-client";
+import { SignatureType } from "@polymarket/order-utils";
 import { Alchemy, Network } from "alchemy-sdk";
 
 const creds: ApiKeyCreds = {
@@ -16,4 +17,11 @@ const alchemyProvider = await new Alchemy({
 export const getWallet = (pk: string) => new Wallet(pk, alchemyProvider);
 
 export const getClobClient = (wallet: Wallet) =>
-  new ClobClient("https://clob.polymarket.com", Chain.POLYGON, wallet, creds);
+  new ClobClient(
+    "https://clob.polymarket.com",
+    Chain.POLYGON,
+    wallet,
+    creds,
+    SignatureType.POLY_GNOSIS_SAFE,
+    process.env.POLYMARKET_FUNDER_ADDRESS
+  );

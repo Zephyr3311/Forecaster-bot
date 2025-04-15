@@ -12,5 +12,7 @@ declare namespace NodeJS {
     CLOB_API_KEY: string;
     CLOB_SECRET: string;
     CLOB_PASS_PHRASE: string;
+
+    POLYMARKET_FUNDER_ADDRESS: string;
   }
 }
