@@ -10,6 +10,7 @@ import { getClobClient, getWallet } from "./utils/web3";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
 const currentTime = dayjs().tz("America/New_York");
 const month = currentTime.format("MMM").toLowerCase();
 

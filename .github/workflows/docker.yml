@@ -27,6 +27,7 @@ jobs:
           echo CLOB_API_KEY=${{ secrets.CLOB_API_KEY }} >> .env
           echo CLOB_SECRET=${{ secrets.CLOB_SECRET }} >> .env
           echo CLOB_PASS_PHRASE=${{ secrets.CLOB_PASS_PHRASE }} >> .env
+          echo POLYMARKET_FUNDER_ADDRESS=${{ secrets.POLYMARKET_FUNDER_ADDRESS }} >> .env
 
           echo OPENVPN_USER=${{ secrets.OPENVPN_USER }} >> .env
           echo OPENVPN_PASSWORD=${{ secrets.OPENVPN_PASSWORD }} >> .env
