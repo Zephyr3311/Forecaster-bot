@@ -60,7 +60,6 @@ services:
       - CLOB_PASS_PHRASE=${CLOB_PASS_PHRASE}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
   polybot-db:
     container_name: polybot-db
     image: postgres:16-alpine
