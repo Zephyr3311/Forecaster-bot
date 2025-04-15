@@ -25,11 +25,6 @@ export const restartContainer = async (containerName: string) => {
 
 export async function gracefulShutdown(exitCode: number = 0) {
   log("Shutting down gracefully...");
-  try {
-    log("Prisma disconnected successfully");
-  } catch (e) {
-    log(`Error during Prisma disconnect ${e}`);
-  }
   process.exit(exitCode);
 }
 
