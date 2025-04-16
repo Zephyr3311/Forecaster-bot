@@ -13,6 +13,7 @@ import {
   VPN_CONATAINER_NAME,
 } from "./puppeteer";
 import type { GradioResult, LlmArenaLeaderboard } from "./types/gradio";
+import { extractModelName } from "./utils";
 
 async function main() {
   const { page } = await connect({
@@ -71,6 +72,7 @@ async function main() {
           rankUb: entry["Rank* (UB)"],
           rankStyleCtrl: entry["Rank (StyleCtrl)"],
           model: entry["Model"],
+          modelName: extractModelName(entry["Model"]),
           arenaScore: entry["Arena Score"],
           ci: entry["95% CI"],
           votes: entry["Votes"],

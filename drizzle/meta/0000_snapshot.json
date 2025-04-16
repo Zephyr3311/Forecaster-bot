@@ -1,5 +1,5 @@
 {
-  "id": "6f8b4abe-c0c2-4e66-8db6-20a0de0365dc",
+  "id": "3b433c65-a39b-4c64-89de-fe7ff7207c76",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -28,6 +28,12 @@
         },
         "model": {
           "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_name": {
+          "name": "model_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -86,6 +92,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "model"
+          ]
+        },
+        "llm_leaderboard_model_name_unique": {
+          "name": "llm_leaderboard_model_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "model_name"
           ]
         }
       },

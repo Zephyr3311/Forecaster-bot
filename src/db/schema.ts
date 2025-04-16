@@ -14,6 +14,7 @@ export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
   rankUb: integer("rank_ub").notNull(),
   rankStyleCtrl: integer("rank_style_ctrl").notNull(),
   model: text("model").notNull().unique(),
+  modelName: text("model_name").notNull().unique(),
   arenaScore: integer().notNull(),
   ci: text("ci").notNull(),
   votes: integer("votes").notNull(),

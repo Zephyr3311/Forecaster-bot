@@ -191,12 +191,14 @@ async function runCycle() {
     log(`Current: ${currentModelOrg}, Top model: ${topModelOrg}`);
     if (currentModelOrg === topModelOrg) {
       log(
-        `No change in top model: ${topModel.model} (${topModel.organization})`
+        `No change in top model: ${topModel.modelName} (${topModel.organization})`
       );
       return;
     }
 
-    log(`🚨 Top model changed to ${topModel.model} (${topModel.organization})`);
+    log(
+      `🚨 Top model changed to ${topModel.modelName} (${topModel.organization})`
+    );
 
     // Find corresponding market
     const currentMonth = dayjs().format("MMM").toLowerCase();
@@ -245,5 +247,5 @@ async function runCycle() {
 await initializeCurrentPosition();
 while (true) {
   await runCycle();
-  await sleep(60000);
+  await sleep(10);
 }
