@@ -9,6 +9,7 @@ import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
 
 const USDC_DECIMALS = 6;
+const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
 let currentModelOrg: string | null = null;
 
 const wallet = getWallet(process.env.PK);
@@ -17,8 +18,6 @@ const clobClient = getClobClient(wallet);
 async function initializeCurrentPosition() {
   try {
     const trades = await clobClient.getTrades();
-
-    // Extract unique asset IDs from trades
     const assetIds = [
       ...new Set(
         trades
@@ -29,12 +28,8 @@ async function initializeCurrentPosition() {
       ),
     ] as string[];
 
-    // Check balances for each asset
     let currentAssetId = null;
     let highestBalance = BigInt(0);
-
-    // Minimum meaningful balance (e.g., 1 USDC worth)
-    const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
 
     for (const assetId of assetIds) {
       const balance = await clobClient.getBalanceAllowance({
@@ -42,7 +37,6 @@ async function initializeCurrentPosition() {
         token_id: assetId,
       });
 
-      // Only consider balances above the minimum threshold
       if (BigInt(balance.balance) > MINIMUM_BALANCE) {
         log(
           `Found position with token ID ${assetId}, balance: ${formatUnits(
@@ -50,7 +44,6 @@ async function initializeCurrentPosition() {
             USDC_DECIMALS
           )}`
         );
-
         if (BigInt(balance.balance) > highestBalance) {
           highestBalance = BigInt(balance.balance);
           currentAssetId = assetId;
@@ -71,7 +64,6 @@ async function initializeCurrentPosition() {
       return;
     }
 
-    // Get token details
     const token = await db
       .select()
       .from(tokenSchema)
@@ -81,10 +73,10 @@ async function initializeCurrentPosition() {
 
     if (!token?.marketId) {
       log(`Could not find market for token ID ${currentAssetId}`);
+      currentModelOrg = null;
       return;
     }
 
-    // Get market details
     const market = await db
       .select()
       .from(marketSchema)
@@ -92,8 +84,6 @@ async function initializeCurrentPosition() {
       .limit(1)
       .then((results) => results[0]);
 
-    // Extract company name directly from the slug
-    // Slug format: "will-{company}-have-the-top-ai-model-on-{month}-{day}"
     const slugMatch = market?.marketSlug.match(
       /will-([^-]+)-have-the-top-ai-model/
     );
@@ -108,17 +98,17 @@ async function initializeCurrentPosition() {
       log(
         `⚠️ Could not extract company from market slug: ${market?.marketSlug}`
       );
+      currentModelOrg = null;
     }
   } catch (err) {
     error("Error initializing position:", err);
     process.exit(1);
   }
 }
+
 async function sellAllPositions() {
-  // Cancel any open orders first
   await clobClient.cancelAll();
 
-  // Find all tokens we have a balance for
   const trades = await clobClient.getTrades();
   const assetIds = [
     ...new Set(
@@ -130,26 +120,15 @@ async function sellAllPositions() {
     ),
   ] as string[];
 
-  const MINIMUM_ORDER_SIZE = ethers.parseUnits("1", USDC_DECIMALS);
-
   for (const assetId of assetIds) {
     const balance = await clobClient.getBalanceAllowance({
       asset_type: AssetType.CONDITIONAL,
       token_id: assetId,
     });
 
-    if (BigInt(balance.balance) > 0) {
+    if (BigInt(balance.balance) > MINIMUM_BALANCE) {
       try {
         const formattedBalance = formatUnits(balance.balance, USDC_DECIMALS);
-
-        // Check if balance is below minimum order size
-        if (BigInt(balance.balance) < MINIMUM_ORDER_SIZE) {
-          log(
-            `Skipping sale of dust position ${assetId}, amount: ${formattedBalance} (below minimum order size)`
-          );
-          continue;
-        }
-
         log(`Selling position ${assetId}, amount: ${formattedBalance}`);
 
         const sellOrder = await clobClient.createMarketOrder({
@@ -162,6 +141,13 @@ async function sellAllPositions() {
       } catch (err) {
         error(`Error selling ${assetId}:`, err);
       }
+    } else if (BigInt(balance.balance) > 0) {
+      log(
+        `Skipping dust position ${assetId}, amount: ${formatUnits(
+          balance.balance,
+          USDC_DECIMALS
+        )}`
+      );
     }
   }
 }
@@ -188,14 +174,15 @@ async function buyPosition(tokenId: string, organization: string) {
       currentModelOrg = organization;
     } catch (err) {
       error(`Error buying ${organization}:`, err);
-      await buyPosition(tokenId, organization);
     }
   }
 }
 
 async function runCycle() {
   try {
-    // Get current top model
+    // Re-check our position at the start of each cycle
+    await initializeCurrentPosition();
+
     const topModel = await db
       .select()
       .from(llmLeaderboardSchema)
@@ -207,7 +194,6 @@ async function runCycle() {
 
     const topModelOrg = topModel.organization.toLowerCase();
 
-    // Check if top model changed
     log(`Current: ${currentModelOrg}, Top model: ${topModelOrg}`);
     if (currentModelOrg === topModelOrg) {
       log(
@@ -220,7 +206,6 @@ async function runCycle() {
       `🚨 Top model changed to ${topModel.modelName} (${topModel.organization})`
     );
 
-    // Find corresponding market
     const currentMonth = dayjs().format("MMM").toLowerCase();
     const market = await db
       .select()
@@ -244,7 +229,6 @@ async function runCycle() {
       return;
     }
 
-    // Get YES token for this market
     const yesToken = await db
       .select()
       .from(tokenSchema)
@@ -256,7 +240,6 @@ async function runCycle() {
       return;
     }
 
-    // Execute the swap: sell all positions first, then buy new one
     await sellAllPositions();
     await buyPosition(yesToken.tokenId, topModelOrg);
   } catch (err) {
@@ -267,5 +250,5 @@ async function runCycle() {
 await initializeCurrentPosition();
 while (true) {
   await runCycle();
-  await sleep(10);
+  await sleep(100);
 }
