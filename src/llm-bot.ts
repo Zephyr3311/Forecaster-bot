@@ -6,6 +6,7 @@ import { formatUnits } from "ethers";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
+import { sleep } from "bun";
 
 const USDC_DECIMALS = 6;
 let currentModelOrg: string | null = null;
@@ -244,10 +245,8 @@ async function runCycle() {
   }
 }
 
-const trades = await clobClient.getTrades();
-log("Trades:", trades);
-// await initializeCurrentPosition();
-// while (true) {
-//   await runCycle();
-//   await sleep(10);
-// }
+await initializeCurrentPosition();
+while (true) {
+  await runCycle();
+  await sleep(10);
+}
