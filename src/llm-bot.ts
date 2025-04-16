@@ -106,8 +106,10 @@ async function initializeCurrentPosition() {
   }
 }
 
-async function sellAllPositions() {
+async function sellAllPositions(topModelTokenId: string | null = null) {
   await clobClient.cancelAll();
+
+  log("Starting to sell positions...");
 
   const trades = await clobClient.getTrades();
   const assetIds = [
@@ -120,7 +122,15 @@ async function sellAllPositions() {
     ),
   ] as string[];
 
+  let anySold = false;
+
   for (const assetId of assetIds) {
+    // Skip selling if this is the token for the current top model
+    if (topModelTokenId && assetId === topModelTokenId) {
+      log(`Keeping position ${assetId} (current top model)`);
+      continue;
+    }
+
     const balance = await clobClient.getBalanceAllowance({
       asset_type: AssetType.CONDITIONAL,
       token_id: assetId,
@@ -138,6 +148,7 @@ async function sellAllPositions() {
         });
 
         await clobClient.postOrder(sellOrder, OrderType.FOK);
+        anySold = true;
       } catch (err) {
         error(`Error selling ${assetId}:`, err);
       }
@@ -149,6 +160,12 @@ async function sellAllPositions() {
         )}`
       );
     }
+  }
+
+  // Wait for blockchain state to update if we sold anything
+  if (anySold) {
+    log("Waiting for balances to update after selling...");
+    await sleep(3000); // Wait 3 seconds for balance to update
   }
 }
 
@@ -257,8 +274,21 @@ async function runCycle() {
       return;
     }
 
-    await sellAllPositions();
-    await buyPosition(yesToken.tokenId, topModelOrg);
+    await sellAllPositions(yesToken.tokenId);
+
+    // Check if we already have this position
+    const currentBalance = await clobClient.getBalanceAllowance({
+      asset_type: AssetType.CONDITIONAL,
+      token_id: yesToken.tokenId,
+    });
+
+    // Only buy if we don't already have a significant position
+    if (BigInt(currentBalance.balance) <= MINIMUM_BALANCE) {
+      await buyPosition(yesToken.tokenId, topModelOrg);
+    } else {
+      log(`Already holding ${topModelOrg} position, no need to buy`);
+      currentModelOrg = topModelOrg;
+    }
   } catch (err) {
     error("Error in bot cycle:", err);
   }
