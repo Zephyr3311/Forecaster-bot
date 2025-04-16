@@ -25,13 +25,13 @@ async function getAllMarkets(): Promise<Market[]> {
       const response = await clobClient.getMarkets(nextCursor);
       allMarkets.push(...response.data);
       nextCursor = response.next_cursor;
-      console.log(
+      log(
         `Fetched ${response.data.length} markets, next cursor: ${atob(
           nextCursor
         )}`
       );
     } catch (err) {
-      console.error("Error fetching markets:", err);
+      error("Error fetching markets:", err);
       break;
     }
   }
