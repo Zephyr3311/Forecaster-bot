@@ -186,9 +186,9 @@ async function buyPosition(
         );
       }
     }
-    
+
     log(`No collateral available for buying. Waiting before retry...`);
-    await sleep(2000);
+    await sleep(1000);
   }
 
   log(`Failed to buy ${organization} after ${retries} attempts`);
