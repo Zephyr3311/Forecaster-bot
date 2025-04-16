@@ -1,12 +1,12 @@
 import { AssetType, OrderType, Side } from "@polymarket/clob-client";
+import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import { and, desc, eq, ilike } from "drizzle-orm";
-import { formatUnits } from "ethers";
+import { ethers, formatUnits } from "ethers";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
-import { sleep } from "bun";
 
 const USDC_DECIMALS = 6;
 let currentModelOrg: string | null = null;
@@ -33,13 +33,17 @@ async function initializeCurrentPosition() {
     let currentAssetId = null;
     let highestBalance = BigInt(0);
 
+    // Minimum meaningful balance (e.g., 1 USDC worth)
+    const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
+
     for (const assetId of assetIds) {
       const balance = await clobClient.getBalanceAllowance({
         asset_type: AssetType.CONDITIONAL,
         token_id: assetId,
       });
 
-      if (BigInt(balance.balance) > 0) {
+      // Only consider balances above the minimum threshold
+      if (BigInt(balance.balance) > MINIMUM_BALANCE) {
         log(
           `Found position with token ID ${assetId}, balance: ${formatUnits(
             balance.balance,
@@ -51,11 +55,19 @@ async function initializeCurrentPosition() {
           highestBalance = BigInt(balance.balance);
           currentAssetId = assetId;
         }
+      } else if (BigInt(balance.balance) > 0) {
+        log(
+          `Ignoring dust balance for token ID ${assetId}, balance: ${formatUnits(
+            balance.balance,
+            USDC_DECIMALS
+          )}`
+        );
       }
     }
 
     if (!currentAssetId) {
-      log(`No active positions found`);
+      log(`No active positions found above minimum threshold`);
+      currentModelOrg = null;
       return;
     }
 
@@ -102,7 +114,6 @@ async function initializeCurrentPosition() {
     process.exit(1);
   }
 }
-
 async function sellAllPositions() {
   // Cancel any open orders first
   await clobClient.cancelAll();
@@ -119,7 +130,8 @@ async function sellAllPositions() {
     ),
   ] as string[];
 
-  // Sell all positions
+  const MINIMUM_ORDER_SIZE = ethers.parseUnits("1", USDC_DECIMALS);
+
   for (const assetId of assetIds) {
     const balance = await clobClient.getBalanceAllowance({
       asset_type: AssetType.CONDITIONAL,
@@ -128,17 +140,24 @@ async function sellAllPositions() {
 
     if (BigInt(balance.balance) > 0) {
       try {
-        log(
-          `Selling position ${assetId}, amount: ${formatUnits(
-            balance.balance,
-            USDC_DECIMALS
-          )}`
-        );
+        const formattedBalance = formatUnits(balance.balance, USDC_DECIMALS);
+
+        // Check if balance is below minimum order size
+        if (BigInt(balance.balance) < MINIMUM_ORDER_SIZE) {
+          log(
+            `Skipping sale of dust position ${assetId}, amount: ${formattedBalance} (below minimum order size)`
+          );
+          continue;
+        }
+
+        log(`Selling position ${assetId}, amount: ${formattedBalance}`);
+
         const sellOrder = await clobClient.createMarketOrder({
           tokenID: assetId,
-          amount: parseFloat(formatUnits(balance.balance, USDC_DECIMALS)),
+          amount: parseFloat(formattedBalance),
           side: Side.SELL,
         });
+
         await clobClient.postOrder(sellOrder, OrderType.FOK);
       } catch (err) {
         error(`Error selling ${assetId}:`, err);
