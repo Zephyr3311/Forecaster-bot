@@ -152,30 +152,47 @@ async function sellAllPositions() {
   }
 }
 
-async function buyPosition(tokenId: string, organization: string) {
-  const collateral = await clobClient.getBalanceAllowance({
-    asset_type: AssetType.COLLATERAL,
-  });
+async function buyPosition(
+  tokenId: string,
+  organization: string,
+  retries = 30
+) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const collateral = await clobClient.getBalanceAllowance({
+      asset_type: AssetType.COLLATERAL,
+    });
 
-  if (BigInt(collateral.balance) > 0) {
-    try {
-      log(
-        `Buying ${organization}, amount: ${formatUnits(
-          collateral.balance,
-          USDC_DECIMALS
-        )}`
-      );
-      const buyOrder = await clobClient.createMarketOrder({
-        tokenID: tokenId,
-        amount: parseFloat(formatUnits(collateral.balance, USDC_DECIMALS)),
-        side: Side.BUY,
-      });
-      await clobClient.postOrder(buyOrder, OrderType.FOK);
-      currentModelOrg = organization;
-    } catch (err) {
-      error(`Error buying ${organization}:`, err);
+    if (BigInt(collateral.balance) > 0) {
+      try {
+        log(
+          `Buying ${organization}, amount: ${formatUnits(
+            collateral.balance,
+            USDC_DECIMALS
+          )} (attempt ${attempt}/${retries})`
+        );
+        const buyOrder = await clobClient.createMarketOrder({
+          tokenID: tokenId,
+          amount: parseFloat(formatUnits(collateral.balance, USDC_DECIMALS)),
+          side: Side.BUY,
+        });
+        await clobClient.postOrder(buyOrder, OrderType.FOK);
+        currentModelOrg = organization;
+        log(`Successfully bought ${organization}`);
+        return true;
+      } catch (err) {
+        error(
+          `Error buying ${organization} (attempt ${attempt}/${retries}):`,
+          err
+        );
+      }
     }
+    
+    log(`No collateral available for buying. Waiting before retry...`);
+    await sleep(2000);
   }
+
+  log(`Failed to buy ${organization} after ${retries} attempts`);
+  return false;
 }
 
 async function runCycle() {
