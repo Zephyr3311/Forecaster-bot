@@ -1,5 +1,4 @@
 import { AssetType, OrderType, Side } from "@polymarket/clob-client";
-import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import { and, desc, eq, ilike } from "drizzle-orm";
@@ -169,6 +168,7 @@ async function buyPosition(tokenId: string, organization: string) {
       currentModelOrg = organization;
     } catch (err) {
       error(`Error buying ${organization}:`, err);
+      await buyPosition(tokenId, organization);
     }
   }
 }
@@ -244,8 +244,10 @@ async function runCycle() {
   }
 }
 
-await initializeCurrentPosition();
-while (true) {
-  await runCycle();
-  await sleep(10);
-}
+const trades = await clobClient.getTrades();
+log("Trades:", trades);
+// await initializeCurrentPosition();
+// while (true) {
+//   await runCycle();
+//   await sleep(10);
+// }
