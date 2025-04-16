@@ -3,9 +3,9 @@ import { log } from "console";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { and, eq, ilike } from "drizzle-orm";
+import { and, desc, eq, ilike } from "drizzle-orm";
 import { db } from "./db";
-import { marketSchema } from "./db/schema";
+import { llmLeaderboardSchema, marketSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
 
 dayjs.extend(utc);
@@ -39,8 +39,15 @@ const llmMarkets = await db
     )
   );
 
+const topModel = await db
+  .select()
+  .from(llmLeaderboardSchema)
+  .orderBy(desc(llmLeaderboardSchema.arenaScore))
+  .limit(1)
+  .then((results) => results[0] || null);
+
 const openOrders = await clobClient.getOpenOrders();
 
 log(`Open Orders:`, openOrders);
-
-console.log(llmMarkets.map((market) => market.marketSlug));
+log(`Top Model:`, topModel);
+log(llmMarkets.map((market) => market.marketSlug));
