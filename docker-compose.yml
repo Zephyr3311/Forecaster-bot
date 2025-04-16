@@ -1,27 +1,27 @@
 services:
-  # polybot-llm-bot:
-  #   container_name: polybot-llm-bot
-  #   network_mode: bridge
-  #   depends_on:
-  #     - polybot-db
-  #     - polybot-vpn
-  #     - polybot-llm-leaderboard
-  #     - polybot-markets
-  #   build:
-  #     context: ./
-  #     dockerfile: Dockerfile
-  #     target: llm-bot
-  #   restart: always
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5436/${POSTGRES_DB}
-  #     - PK=${PK}
-  #     - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
-  #     - POLYMARKET_FUNDER_ADDRESS=${POLYMARKET_FUNDER_ADDRESS}
-  #     - CLOB_API_KEY=${CLOB_API_KEY}
-  #     - CLOB_SECRET=${CLOB_SECRET}
-  #     - CLOB_PASS_PHRASE=${CLOB_PASS_PHRASE}
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
+  polybot-llm-bot:
+    container_name: polybot-llm-bot
+    network_mode: bridge
+    depends_on:
+      - polybot-db
+      - polybot-vpn
+      - polybot-llm-leaderboard
+      - polybot-markets
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: llm-bot
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5436/${POSTGRES_DB}
+      - PK=${PK}
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+      - POLYMARKET_FUNDER_ADDRESS=${POLYMARKET_FUNDER_ADDRESS}
+      - CLOB_API_KEY=${CLOB_API_KEY}
+      - CLOB_SECRET=${CLOB_SECRET}
+      - CLOB_PASS_PHRASE=${CLOB_PASS_PHRASE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   polybot-llm-leaderboard:
     container_name: polybot-llm-leaderboard
     network_mode: service:polybot-vpn
