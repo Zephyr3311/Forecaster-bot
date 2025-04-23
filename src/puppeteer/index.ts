@@ -8,6 +8,8 @@ import type { Page } from "rebrowser-puppeteer-core";
 mkdirSync(join(resolve(), "stream"), { recursive: true });
 
 export const LLM_ARENA_URL = "https://lmarena.ai";
+export const LLM_ARENA_NEW_URL =
+  "https://beta.lmarena.ai/leaderboard/text/overall";
 export const LEADERBOARD_FILE = join(resolve(), "leaderboard.json");
 export const VPN_CONATAINER_NAME = "polybot-vpn";
 

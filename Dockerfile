@@ -16,6 +16,7 @@ WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 RUN bun run build-llm-leaderboard
+RUN bun run build-llm-leaderboard-new
 RUN bun run build-markets
 RUN bun run build-llm-bot
 #############################################
