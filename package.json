@@ -15,7 +15,7 @@
     "markets": "bun --bun --watch src/markets.ts",
     "llm-leaderboard": "bun --bun src/llm-leaderboard.ts",
     "llm-leaderboard-new": "bun --bun src/llm-leaderboard-new.ts",
-    "drizzle": "bun run reset & drizzle-kit generate",
+    "drizzle": "bun run reset && drizzle-kit generate",
     "reset": "bun ./drizzle/reset-db.ts",
     "gen": "bun --bun run src/utils/generate-key.ts"
   },

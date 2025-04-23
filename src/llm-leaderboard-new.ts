@@ -1,5 +1,4 @@
 /// <reference path="./types/gradio.d.ts" />
-import { sleep } from "bun";
 import * as cheerio from "cheerio";
 import { log } from "console";
 import { writeFileSync } from "fs";
@@ -14,26 +13,12 @@ import {
   restartContainer,
   VPN_CONATAINER_NAME,
 } from "./puppeteer";
-import { extractModelName } from "./utils";
+import { extractModelName, parseFormattedNumber } from "./utils";
 
-async function main() {
+export async function llmArenaNew() {
   const { page } = await connect({
     turnstile: true,
     connectOption: { defaultViewport: null },
-  });
-
-  page.on("error", (err) => console.log("page error", err));
-  page.on("pageerror", (err) => console.log("page console error", err));
-  page.on("console", (msg) => {
-    if (msg.type() === "error") {
-      console.log(
-        "browser console",
-        msg.text(),
-        msg.location(),
-        msg.args(),
-        msg.stackTrace()
-      );
-    }
   });
 
   await checkIfWorkingElseRestart(page);
@@ -48,10 +33,9 @@ async function main() {
   let emptyLeaderboardCount = 0;
 
   while (true) {
-    const leaderboardHtml = await page.evaluate(async () => {
+    const leaderboardHtml = await page.evaluate(async (url) => {
       try {
-        const response = await fetch(LLM_ARENA_NEW_URL);
-        console.error(response);
+        const response = await fetch(url);
         const text = await response.text();
 
         return text;
@@ -59,11 +43,7 @@ async function main() {
         console.error("Error fetching leaderboard:", err);
         return null;
       }
-    });
-
-    console.log(leaderboardHtml);
-
-    await sleep(1000);
+    }, LLM_ARENA_NEW_URL);
 
     if (!leaderboardHtml) continue;
 
@@ -80,7 +60,7 @@ async function main() {
           modelName: extractModelName($(tds[2]).text()),
           arenaScore: $(tds[3]).text().trim(),
           ci: $(tds[4]).text().trim(),
-          votes: $(tds[5]).text().trim(),
+          votes: parseFormattedNumber($(tds[5]).text().trim()),
           organization: $(tds[6]).text().trim(),
           license: $(tds[7]).text().trim(),
         };
@@ -97,7 +77,7 @@ async function main() {
         .insert(llmLeaderboardSchema)
         .values(llmLeaderboard)
         .onConflictDoUpdate({
-          target: [llmLeaderboardSchema.model],
+          target: [llmLeaderboardSchema.modelName],
           set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
         });
       writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeaderboard, null, 2));
@@ -120,4 +100,4 @@ async function main() {
   }
 }
 
-main();
+llmArenaNew();

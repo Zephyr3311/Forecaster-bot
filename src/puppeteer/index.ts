@@ -4,16 +4,32 @@ import Docker from "dockerode";
 import { mkdirSync } from "fs";
 import { join, resolve } from "path";
 import type { Page } from "rebrowser-puppeteer-core";
+import { llmArena } from "../llm-leaderboard";
+import { llmArenaNew } from "../llm-leaderboard-new";
 
 mkdirSync(join(resolve(), "stream"), { recursive: true });
 
-export const LLM_ARENA_URL = "https://lmarena.ai";
+export const LLM_ARENA_URL = "https://lmarena.ai" as const;
 export const LLM_ARENA_NEW_URL =
-  "https://beta.lmarena.ai/leaderboard/text/overall";
+  "https://beta.lmarena.ai/leaderboard/text/overall" as const;
 export const LEADERBOARD_FILE = join(resolve(), "leaderboard.json");
 export const VPN_CONATAINER_NAME = "polybot-vpn";
 
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+
+export const checkWhichLeaderboard = async (
+  page: Page,
+  url: typeof LLM_ARENA_URL | typeof LLM_ARENA_NEW_URL
+): Promise<typeof llmArena | typeof llmArenaNew> => {
+  await page.goto(url, { waitUntil: "networkidle2" });
+  const content = await page.content();
+  if (content.includes(`"Not Found"`)) {
+    log("Using old leaderboard");
+    return llmArena;
+  }
+  log("Using new leaderboard");
+  return llmArenaNew;
+};
 
 export const restartContainer = async (containerName: string) => {
   try {

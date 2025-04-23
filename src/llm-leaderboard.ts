@@ -15,7 +15,7 @@ import {
 import type { GradioResult, LlmArenaLeaderboard } from "./types/gradio";
 import { extractModelName } from "./utils";
 
-async function main() {
+export async function llmArena() {
   const { page } = await connect({
     turnstile: true,
     connectOption: { defaultViewport: null },
@@ -83,7 +83,7 @@ async function main() {
         .insert(llmLeaderboardSchema)
         .values(llmLeadeboard)
         .onConflictDoUpdate({
-          target: [llmLeaderboardSchema.model],
+          target: [llmLeaderboardSchema.modelName],
           set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
         });
       writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeadeboard, null, 2));
@@ -106,4 +106,4 @@ async function main() {
   }
 }
 
-main();
+llmArena();
