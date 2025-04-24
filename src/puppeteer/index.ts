@@ -37,21 +37,21 @@ export const checkWhichLeaderboard = async (page: Page) => {
   if (CONTAINER_TYPE === "PRIMARY") {
     if (isNewSiteActive) {
       log("PRIMARY container running new site scraper");
-      await llmArenaNew();
+      return llmArenaNew;
     } else {
       log("PRIMARY container running old site scraper (new site not detected)");
-      await llmArena();
+      return llmArena;
     }
   } else {
     // SECONDARY container does the opposite
     if (!isNewSiteActive) {
       log("SECONDARY container running old site scraper");
-      await llmArena();
+      return llmArena;
     } else {
       log(
         "SECONDARY container running new site scraper (old site not detected)"
       );
-      await llmArenaNew();
+      return llmArenaNew;
     }
   }
 };

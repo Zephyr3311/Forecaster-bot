@@ -2,10 +2,10 @@
 import { log } from "console";
 import { writeFileSync } from "fs";
 import { connect } from "puppeteer-real-browser";
+import type { Page } from "rebrowser-puppeteer-core";
 import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
 import {
-  checkIfWorkingElseRestart,
   checkWhichLeaderboard,
   gracefulShutdown,
   LEADERBOARD_FILE,
@@ -16,14 +16,7 @@ import {
 import type { GradioResult, LlmArenaLeaderboard } from "./types/gradio";
 import { extractModelName } from "./utils";
 
-const { page } = await connect({
-  turnstile: true,
-  connectOption: { defaultViewport: null },
-});
-
-export async function llmArena() {
-  await checkIfWorkingElseRestart(page);
-
+export async function llmArena(page: Page) {
   setInterval(
     () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
     1000
@@ -107,4 +100,14 @@ export async function llmArena() {
   }
 }
 
-await checkWhichLeaderboard(page);
+const main = async () => {
+  const { page } = await connect({
+    turnstile: true,
+    connectOption: { defaultViewport: null },
+  });
+
+  const check = await checkWhichLeaderboard(page);
+  await check(page);
+};
+
+main().catch(console.error);

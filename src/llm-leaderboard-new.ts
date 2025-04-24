@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import { log } from "console";
 import { writeFileSync } from "fs";
 import { connect } from "puppeteer-real-browser";
+import type { Page } from "rebrowser-puppeteer-core";
 import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
 import {
@@ -16,12 +17,7 @@ import {
 } from "./puppeteer";
 import { extractModelName, parseFormattedNumber } from "./utils";
 
-const { page } = await connect({
-  turnstile: true,
-  connectOption: { defaultViewport: null },
-});
-
-export async function llmArenaNew() {
+export async function llmArenaNew(page: Page) {
   await checkIfWorkingElseRestart(page);
 
   setInterval(
@@ -101,4 +97,14 @@ export async function llmArenaNew() {
   }
 }
 
-await checkWhichLeaderboard(page);
+const main = async () => {
+  const { page } = await connect({
+    turnstile: true,
+    connectOption: { defaultViewport: null },
+  });
+
+  const check = await checkWhichLeaderboard(page);
+  await check(page);
+};
+
+main().catch(console.error);
