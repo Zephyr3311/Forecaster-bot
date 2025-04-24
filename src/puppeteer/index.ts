@@ -24,6 +24,7 @@ export const VPN_CONATAINER_NAME =
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
 export const checkWhichLeaderboard = async (page: Page) => {
+  await checkIfWorkingElseRestart(page);
   // First, determine which site is active
   await page.goto(`${LLM_ARENA_URL}/random-test-path`, {
     waitUntil: "networkidle2",

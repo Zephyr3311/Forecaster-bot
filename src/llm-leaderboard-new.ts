@@ -7,7 +7,6 @@ import type { Page } from "rebrowser-puppeteer-core";
 import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
 import {
-  checkIfWorkingElseRestart,
   checkWhichLeaderboard,
   gracefulShutdown,
   LEADERBOARD_FILE,
@@ -18,8 +17,6 @@ import {
 import { extractModelName, parseFormattedNumber } from "./utils";
 
 export async function llmArenaNew(page: Page) {
-  await checkIfWorkingElseRestart(page);
-
   setInterval(
     () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
     1000
