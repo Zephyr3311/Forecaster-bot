@@ -14,6 +14,7 @@ mkdirSync(join(resolve(), "stream"), { recursive: true });
 export const LLM_ARENA_URL = "https://lmarena.ai" as const;
 export const LLM_ARENA_NEW_URL =
   "https://beta.lmarena.ai/leaderboard/text/overall" as const;
+
 export const LEADERBOARD_FILE = join(resolve(), "leaderboard.json");
 export const VPN_CONATAINER_NAME =
   CONTAINER_TYPE === "PRIMARY"
