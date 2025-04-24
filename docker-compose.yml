@@ -41,24 +41,24 @@ services:
       - CONTAINER_TYPE=PRIMARY
     shm_size: "8gb"
 
-  # polybot-llm-leaderboard-new:
-  #   container_name: polybot-llm-leaderboard-new
-  #   network_mode: service:polybot-vpn-leaderboard-new
-  #   depends_on:
-  #     - polybot-db
-  #     - polybot-vpn-leaderboard-new
-  #   build:
-  #     context: ./
-  #     dockerfile: Dockerfile
-  #     target: llm-leaderboard-new
-  #   restart: always
-  #   volumes:
-  #     - ~/polybot-stream/:/app/stream
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5436/${POSTGRES_DB}
-  #     - CONTAINER_TYPE=SECONDARY
-  #   shm_size: "8gb"
+  polybot-llm-leaderboard-new:
+    container_name: polybot-llm-leaderboard-new
+    network_mode: service:polybot-vpn-leaderboard-new
+    depends_on:
+      - polybot-db
+      - polybot-vpn-leaderboard-new
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: llm-leaderboard-new
+    restart: always
+    volumes:
+      - ~/polybot-stream/:/app/stream
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5436/${POSTGRES_DB}
+      - CONTAINER_TYPE=SECONDARY
+    shm_size: "8gb"
   polybot-markets:
     container_name: polybot-markets
     network_mode: bridge
