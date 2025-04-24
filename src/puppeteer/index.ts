@@ -45,7 +45,7 @@ export const checkWhichLeaderboard = async (page: Page) => {
     }
   } else {
     // SECONDARY container does the opposite
-    if (!isNewSiteActive) {
+    if (isNewSiteActive) {
       log("SECONDARY container running old site scraper");
       return llmArena;
     } else {
