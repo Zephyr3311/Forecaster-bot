@@ -1,4 +1,6 @@
 import { connect } from "puppeteer-real-browser";
+import { checkWhichLeaderboard, LLM_ARENA_NEW_URL } from "./puppeteer";
+import { llmArenaNew } from "./puppeteer/llmArena";
 
 const main = async () => {
   const { page } = await connect({
@@ -6,8 +8,13 @@ const main = async () => {
     connectOption: { defaultViewport: null },
   });
 
-  // const check = await checkWhichLeaderboard(page);
-  // await check(page);
+  const isNewSiteActive = await checkWhichLeaderboard(page);
+
+  if (!isNewSiteActive) {
+    await llmArenaNew(page, LLM_ARENA_NEW_URL);
+  } else {
+    await llmArenaNew(page, "https://lmarena.ai/leaderboard/text/overall");
+  }
 };
 
 main().catch(console.error);

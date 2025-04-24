@@ -1,5 +1,6 @@
 import { connect } from "puppeteer-real-browser";
 import { checkWhichLeaderboard } from "./puppeteer";
+import { llmArena, llmArenaNew } from "./puppeteer/llmArena";
 
 const main = async () => {
   const { page } = await connect({
@@ -9,16 +10,11 @@ const main = async () => {
 
   const isNewSiteActive = await checkWhichLeaderboard(page);
 
-  // const check = await checkWhichLeaderboard(page);
-  // await check(page);
-
-  // await page.goto(`${LLM_ARENA_URL}/random-test-path`, {
-  //   waitUntil: "networkidle2",
-  // });
-  // const content = await page.content();
-  // const isNewSiteActive = content.includes('{"detail":"Not Found"}');
-
-  // console.log(`Site check complete - New site active: ${isNewSiteActive}`);
+  if (isNewSiteActive) {
+    await llmArenaNew(page, "https://lmarena.ai/leaderboard/text/overall");
+  } else {
+    await llmArena(page);
+  }
 };
 
 main().catch(console.error);

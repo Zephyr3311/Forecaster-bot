@@ -6,7 +6,6 @@ import type { Page } from "rebrowser-puppeteer-core";
 import {
   gracefulShutdown,
   LEADERBOARD_FILE,
-  LLM_ARENA_NEW_URL,
   LLM_ARENA_URL,
   restartContainer,
   VPN_CONATAINER_NAME,
@@ -100,10 +99,7 @@ export async function llmArena(page: Page) {
   }
 }
 
-export async function llmArenaNew(
-  page: Page,
-  url: typeof LLM_ARENA_NEW_URL | typeof LLM_ARENA_URL
-) {
+export async function llmArenaNew(page: Page, url: string) {
   setInterval(
     () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
     1000
