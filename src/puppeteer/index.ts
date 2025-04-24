@@ -7,28 +7,52 @@ import type { Page } from "rebrowser-puppeteer-core";
 import { llmArena } from "../llm-leaderboard";
 import { llmArenaNew } from "../llm-leaderboard-new";
 
+const CONTAINER_TYPE = process.env.CONTAINER_TYPE;
+
 mkdirSync(join(resolve(), "stream"), { recursive: true });
 
 export const LLM_ARENA_URL = "https://lmarena.ai" as const;
 export const LLM_ARENA_NEW_URL =
   "https://beta.lmarena.ai/leaderboard/text/overall" as const;
 export const LEADERBOARD_FILE = join(resolve(), "leaderboard.json");
-export const VPN_CONATAINER_NAME = "polybot-vpn";
+export const VPN_CONATAINER_NAME =
+  CONTAINER_TYPE === "PRIMARY"
+    ? "polybot-vpn-leaderboard"
+    : "polybot-vpn-leaderboard-new";
 
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-export const checkWhichLeaderboard = async (
-  page: Page,
-  url: typeof LLM_ARENA_URL | typeof LLM_ARENA_NEW_URL
-): Promise<typeof llmArena | typeof llmArenaNew> => {
-  await page.goto(url, { waitUntil: "networkidle2" });
+export const checkWhichLeaderboard = async (page: Page) => {
+  // First, determine which site is active
+  await page.goto(`${LLM_ARENA_URL}/random-test-path`, {
+    waitUntil: "networkidle2",
+  });
   const content = await page.content();
-  if (content.includes(`"Not Found"`)) {
-    log("Using old leaderboard");
-    return llmArena;
+  const isNewSiteActive = content.includes('{"detail":"Not Found"}');
+
+  log(`Site check complete - New site active: ${isNewSiteActive}`);
+
+  // Decide which scraper to run based on container type and active site
+  if (CONTAINER_TYPE === "PRIMARY") {
+    if (isNewSiteActive) {
+      log("PRIMARY container running new site scraper");
+      await llmArenaNew();
+    } else {
+      log("PRIMARY container running old site scraper (new site not detected)");
+      await llmArena();
+    }
+  } else {
+    // SECONDARY container does the opposite
+    if (!isNewSiteActive) {
+      log("SECONDARY container running old site scraper");
+      await llmArena();
+    } else {
+      log(
+        "SECONDARY container running new site scraper (old site not detected)"
+      );
+      await llmArenaNew();
+    }
   }
-  log("Using new leaderboard");
-  return llmArenaNew;
 };
 
 export const restartContainer = async (containerName: string) => {

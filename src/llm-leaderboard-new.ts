@@ -7,6 +7,7 @@ import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
 import {
   checkIfWorkingElseRestart,
+  checkWhichLeaderboard,
   gracefulShutdown,
   LEADERBOARD_FILE,
   LLM_ARENA_NEW_URL,
@@ -15,12 +16,12 @@ import {
 } from "./puppeteer";
 import { extractModelName, parseFormattedNumber } from "./utils";
 
-export async function llmArenaNew() {
-  const { page } = await connect({
-    turnstile: true,
-    connectOption: { defaultViewport: null },
-  });
+const { page } = await connect({
+  turnstile: true,
+  connectOption: { defaultViewport: null },
+});
 
+export async function llmArenaNew() {
   await checkIfWorkingElseRestart(page);
 
   setInterval(
@@ -100,4 +101,4 @@ export async function llmArenaNew() {
   }
 }
 
-llmArenaNew();
+await checkWhichLeaderboard(page);

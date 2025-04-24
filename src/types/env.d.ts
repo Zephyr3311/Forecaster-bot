@@ -6,6 +6,8 @@ declare namespace NodeJS {
     POSTGRES_DB: string;
     DATABASE_URL: string;
 
+    CONTAINER_TYPE: "PRIMARY" | "SECONDARY";
+    
     PK: string;
     ALCHEMY_API_KEY: string;
 

@@ -6,6 +6,7 @@ import { conflictUpdateAllExcept, db } from "./db";
 import { llmLeaderboardSchema } from "./db/schema";
 import {
   checkIfWorkingElseRestart,
+  checkWhichLeaderboard,
   gracefulShutdown,
   LEADERBOARD_FILE,
   LLM_ARENA_URL,
@@ -15,12 +16,12 @@ import {
 import type { GradioResult, LlmArenaLeaderboard } from "./types/gradio";
 import { extractModelName } from "./utils";
 
-export async function llmArena() {
-  const { page } = await connect({
-    turnstile: true,
-    connectOption: { defaultViewport: null },
-  });
+const { page } = await connect({
+  turnstile: true,
+  connectOption: { defaultViewport: null },
+});
 
+export async function llmArena() {
   await checkIfWorkingElseRestart(page);
 
   setInterval(
@@ -106,4 +107,4 @@ export async function llmArena() {
   }
 }
 
-llmArena();
+await checkWhichLeaderboard(page);
