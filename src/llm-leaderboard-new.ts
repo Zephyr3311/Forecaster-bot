@@ -1,98 +1,4 @@
-/// <reference path="./types/gradio.d.ts" />
-import * as cheerio from "cheerio";
-import { log } from "console";
-import { writeFileSync } from "fs";
 import { connect } from "puppeteer-real-browser";
-import type { Page } from "rebrowser-puppeteer-core";
-import { conflictUpdateAllExcept, db } from "./db";
-import { llmLeaderboardSchema } from "./db/schema";
-import {
-  checkWhichLeaderboard,
-  gracefulShutdown,
-  LEADERBOARD_FILE,
-  LLM_ARENA_NEW_URL,
-  restartContainer,
-  VPN_CONATAINER_NAME,
-} from "./puppeteer";
-import { extractModelName, parseFormattedNumber } from "./utils";
-
-export async function llmArenaNew(page: Page) {
-  setInterval(
-    () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
-    1000
-  );
-
-  await page.goto(LLM_ARENA_NEW_URL, { waitUntil: "networkidle2" });
-
-  let emptyLeaderboardCount = 0;
-
-  while (true) {
-    const leaderboardHtml = await page.evaluate(async (url) => {
-      try {
-        const response = await fetch(url);
-        const text = await response.text();
-
-        return text;
-      } catch (err) {
-        console.error("Error fetching leaderboard:", err);
-        return null;
-      }
-    }, LLM_ARENA_NEW_URL);
-
-    if (!leaderboardHtml) continue;
-
-    const $ = cheerio.load(leaderboardHtml);
-    const llmLeaderboard: (typeof llmLeaderboardSchema.$inferInsert)[] = [];
-    $("table tr").each((i, el) => {
-      const tds = $(el).find("td");
-
-      if (tds.length > 0) {
-        const entry = {
-          rankUb: $(tds[0]).text().trim(),
-          rankStyleCtrl: $(tds[1]).text().trim(),
-          model: $(tds[2]).text().trim(),
-          modelName: extractModelName($(tds[2]).text()),
-          arenaScore: $(tds[3]).text().trim(),
-          ci: $(tds[4]).text().trim(),
-          votes: parseFormattedNumber($(tds[5]).text().trim()),
-          organization: $(tds[6]).text().trim(),
-          license: $(tds[7]).text().trim(),
-        };
-        llmLeaderboard.push(
-          entry as unknown as typeof llmLeaderboardSchema.$inferInsert
-        );
-      }
-    });
-
-    if (llmLeaderboard.length) {
-      emptyLeaderboardCount = 0; // Reset counter when we get data
-
-      await db
-        .insert(llmLeaderboardSchema)
-        .values(llmLeaderboard)
-        .onConflictDoUpdate({
-          target: [llmLeaderboardSchema.modelName],
-          set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
-        });
-      writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeaderboard, null, 2));
-      log(`NEW Leaderboard updated with ${llmLeaderboard.length} entries`);
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    } else {
-      emptyLeaderboardCount++;
-      log(`Empty leaderboard returned (${emptyLeaderboardCount}/10)`);
-
-      if (emptyLeaderboardCount >= 10) {
-        log(
-          "Received 10 consecutive empty leaderboards, restarting VPN container..."
-        );
-        await restartContainer(VPN_CONATAINER_NAME);
-        await gracefulShutdown();
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 3500));
-    }
-  }
-}
 
 const main = async () => {
   const { page } = await connect({
@@ -100,8 +6,8 @@ const main = async () => {
     connectOption: { defaultViewport: null },
   });
 
-  const check = await checkWhichLeaderboard(page);
-  await check(page);
+  // const check = await checkWhichLeaderboard(page);
+  // await check(page);
 };
 
 main().catch(console.error);

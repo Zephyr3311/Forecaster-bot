@@ -4,8 +4,6 @@ import Docker from "dockerode";
 import { mkdirSync } from "fs";
 import { join, resolve } from "path";
 import type { Page } from "rebrowser-puppeteer-core";
-import { llmArena } from "../llm-leaderboard";
-import { llmArenaNew } from "../llm-leaderboard-new";
 
 const CONTAINER_TYPE = process.env.CONTAINER_TYPE;
 
@@ -30,31 +28,11 @@ export const checkWhichLeaderboard = async (page: Page) => {
     waitUntil: "networkidle2",
   });
   const content = await page.content();
-  const isNewSiteActive = content.includes('{"detail":"Not Found"}');
+  const isNewSiteActive = !content.includes('{"detail":"Not Found"}');
 
   log(`Site check complete - New site active: ${isNewSiteActive}`);
 
-  // Decide which scraper to run based on container type and active site
-  if (CONTAINER_TYPE === "PRIMARY") {
-    if (isNewSiteActive) {
-      log("PRIMARY container running new site scraper");
-      return llmArenaNew;
-    } else {
-      log("PRIMARY container running old site scraper (new site not detected)");
-      return llmArena;
-    }
-  } else {
-    // SECONDARY container does the opposite
-    if (isNewSiteActive) {
-      log("SECONDARY container running old site scraper");
-      return llmArena;
-    } else {
-      log(
-        "SECONDARY container running new site scraper (old site not detected)"
-      );
-      return llmArenaNew;
-    }
-  }
+  return isNewSiteActive;
 };
 
 export const restartContainer = async (containerName: string) => {
