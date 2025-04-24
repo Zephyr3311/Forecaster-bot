@@ -81,7 +81,7 @@ export async function llmArena(page: Page) {
           set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
         });
       writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeadeboard, null, 2));
-      log(`Leaderboard updated with ${llmLeadeboard.length} entries`);
+      log(`OLD Leaderboard updated with ${llmLeadeboard.length} entries`);
       await new Promise((resolve) => setTimeout(resolve, 400));
     } else {
       emptyLeaderboardCount++;
