@@ -1,210 +1,227 @@
-import { AssetType, OrderType, Side } from "@polymarket/clob-client";
-import { sleep } from "bun";
-import { error, log } from "console";
+import { log } from "console";
 import dayjs from "dayjs";
-import { and, desc, eq, ilike } from "drizzle-orm";
-import { ethers, formatUnits } from "ethers";
+import { and, eq, ilike } from "drizzle-orm";
 import { db } from "./db";
-import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
+import { marketSchema, tokenSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
-
-const USDC_DECIMALS = 6;
-const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
-let currentModelOrg: string | null = null;
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
 
-async function sellAllPositions(topModelTokenId: string | null = null) {
-  await clobClient.cancelAll();
+interface TweetRange {
+  min: number;
+  max: number | null; // null means "or more"
+  marketId: number;
+  marketSlug: string;
+  question: string;
+  startDate: string;
+  endDate: string;
+}
 
-  log("Starting to sell positions...");
+async function findElonTweetMarkets(): Promise<TweetRange[]> {
+  // Find markets that are active, not closed, and about Elon's tweet count
+  const tweetMarkets = await db
+    .select()
+    .from(marketSchema)
+    .where(and(ilike(marketSchema.question, "Will Elon tweet % times %")));
 
-  const trades = await clobClient.getTrades();
-  const assetIds = [
-    ...new Set(
-      trades
-        .map((t) =>
-          t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
-        )
-        .filter(Boolean)
-    ),
-  ] as string[];
+  log(`Found ${tweetMarkets.length} Elon tweet markets`);
 
-  let anySold = false;
+  // Extract range and date information from markets
+  return tweetMarkets
+    .map((market) => {
+      // Try to parse ranges like "100-124", "125-149", or "less than 100", "400 or more"
+      let rangeMatch: RegExpMatchArray | null;
+      let min = 0;
+      let max: number | null = null;
 
-  for (const assetId of assetIds) {
-    // Skip selling if this is the token for the current top model
-    if (topModelTokenId && assetId === topModelTokenId) {
-      log(`Keeping position ${assetId} (current top model)`);
-      continue;
-    }
-
-    const balance = await clobClient.getBalanceAllowance({
-      asset_type: AssetType.CONDITIONAL,
-      token_id: assetId,
-    });
-
-    if (BigInt(balance.balance) > MINIMUM_BALANCE) {
-      try {
-        const formattedBalance = formatUnits(balance.balance, USDC_DECIMALS);
-        log(`Selling position ${assetId}, amount: ${formattedBalance}`);
-
-        const sellOrder = await clobClient.createMarketOrder({
-          tokenID: assetId,
-          amount: parseFloat(formattedBalance),
-          side: Side.SELL,
-        });
-
-        await clobClient.postOrder(sellOrder, OrderType.FOK);
-        anySold = true;
-      } catch (err) {
-        error(`Error selling ${assetId}:`, err);
+      // Check for "X-Y times" pattern
+      rangeMatch = market.question.match(/(\d+)-(\d+) times/);
+      if (rangeMatch) {
+        min = parseInt(rangeMatch[1]!, 10);
+        max = parseInt(rangeMatch[2]!, 10);
+      } else {
+        // Check for "less than X times" pattern
+        rangeMatch = market.question.match(/less than (\d+) times/i);
+        if (rangeMatch) {
+          min = 0;
+          max = parseInt(rangeMatch[1]!, 10) - 1;
+        } else {
+          // Check for "X or more times" pattern
+          rangeMatch = market.question.match(/(\d+) or more times/i);
+          if (rangeMatch) {
+            min = parseInt(rangeMatch[1]!, 10);
+            max = null; // null indicates "or more"
+          } else {
+            return null; // Couldn't parse range
+          }
+        }
       }
-    } else if (BigInt(balance.balance) > 0) {
-      log(
-        `Skipping dust position ${assetId}, amount: ${formatUnits(
-          balance.balance,
-          USDC_DECIMALS
-        )}`
+
+      // Extract date range from the market slug
+      // Pattern like: will-elon-tweet-250-274-times-jan-24-31
+      const dateRangeMatch = market.marketSlug.match(
+        /times-(\w+)-(\d+)(?:-(\w+)-)?(\d+)/
       );
+      if (!dateRangeMatch) return null;
+
+      const startMonth = dateRangeMatch[1];
+      const startDay = parseInt(dateRangeMatch[2]!, 10);
+      const endMonth = dateRangeMatch[3] || startMonth;
+      const endDay = parseInt(dateRangeMatch[4]!, 10);
+
+      const year = dayjs().year();
+      const startMonthNum = getMonthNumber(startMonth!);
+      const endMonthNum = getMonthNumber(endMonth!);
+
+      const startDate = `${year}-${startMonthNum
+        .toString()
+        .padStart(2, "0")}-${startDay.toString().padStart(2, "0")}`;
+      const endDate = `${year}-${endMonthNum
+        .toString()
+        .padStart(2, "0")}-${endDay.toString().padStart(2, "0")}`;
+
+      return {
+        min,
+        max,
+        marketId: market.id,
+        marketSlug: market.marketSlug,
+        question: market.question,
+        startDate,
+        endDate,
+      };
+    })
+    .filter(Boolean) as TweetRange[];
+}
+
+function getMonthNumber(monthStr: string): number {
+  const months: { [key: string]: number } = {
+    jan: 1,
+    feb: 2,
+    mar: 3,
+    apr: 4,
+    may: 5,
+    jun: 6,
+    jul: 7,
+    aug: 8,
+    sep: 9,
+    oct: 10,
+    nov: 11,
+    dec: 12,
+  };
+  return months[monthStr.toLowerCase()] || 1;
+}
+
+async function getCurrentActiveMarket(): Promise<TweetRange | null> {
+  const markets = await findElonTweetMarkets();
+
+  if (markets.length === 0) {
+    log("No active Elon tweet count markets found");
+    return null;
+  }
+
+  // Find the current date range from the market slugs
+  const today = dayjs().format("YYYY-MM-DD");
+
+  for (const market of markets) {
+    // Check if today is within this range
+    if (today >= market.startDate && today <= market.endDate) {
+      log(`Found active market for current date range: ${market.question}`);
+      return market;
     }
   }
 
-  // Wait for blockchain state to update if we sold anything
-  if (anySold) {
-    log("Waiting for balances to update after selling...");
-    await sleep(3000); // Wait 3 seconds for balance to update
-  }
+  log("No market found for the current date range");
+  return null;
 }
 
-async function buyPosition(
-  tokenId: string,
-  organization: string,
-  retries = 30
-) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    const collateral = await clobClient.getBalanceAllowance({
-      asset_type: AssetType.COLLATERAL,
-    });
-
-    if (BigInt(collateral.balance) > 0) {
-      try {
-        log(
-          `Buying ${organization}, amount: ${formatUnits(
-            collateral.balance,
-            USDC_DECIMALS
-          )} (attempt ${attempt}/${retries})`
-        );
-        const buyOrder = await clobClient.createMarketOrder({
-          tokenID: tokenId,
-          amount: parseFloat(formatUnits(collateral.balance, USDC_DECIMALS)),
-          side: Side.BUY,
-        });
-        await clobClient.postOrder(buyOrder, OrderType.FOK);
-        currentModelOrg = organization;
-        log(`Successfully bought ${organization}`);
-        return true;
-      } catch (err) {
-        error(
-          `Error buying ${organization} (attempt ${attempt}/${retries}):`,
-          err
-        );
-      }
-    }
-
-    log(`No collateral available for buying. Waiting before retry...`);
-    await sleep(1000);
-  }
-
-  log(`Failed to buy ${organization} after ${retries} attempts`);
-  return false;
-}
-
-async function runCycle() {
+async function getCurrentPosition() {
   try {
-    const topModel = await db
-      .select()
-      .from(llmLeaderboardSchema)
-      .orderBy(desc(llmLeaderboardSchema.arenaScore))
-      .limit(1)
-      .then((results) => results[0]);
+    const trades = await clobClient.getTrades();
+    const assetIds = [
+      ...new Set(
+        trades
+          .map((t) =>
+            t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
+          )
+          .filter(Boolean)
+      ),
+    ] as string[];
 
-    if (!topModel) return;
+    log(`Found ${assetIds.length} potential positions`);
 
-    const topModelOrg = topModel.organization.toLowerCase();
+    for (const assetId of assetIds) {
+      const token = await db
+        .select()
+        .from(tokenSchema)
+        .where(eq(tokenSchema.tokenId, assetId))
+        .limit(1)
+        .then((results) => results[0]);
 
-    log(`Current: ${currentModelOrg}, Top model: ${topModelOrg}`);
-    if (currentModelOrg === topModelOrg) {
-      log(
-        `No change in top model: ${topModel.modelName} (${topModel.organization})`
-      );
-      return;
+      if (!token?.marketId) continue;
+
+      const market = await db
+        .select()
+        .from(marketSchema)
+        .where(eq(marketSchema.id, token.marketId))
+        .limit(1)
+        .then((results) => results[0]);
+
+      const isTweetMarket = market?.question.includes("Will Elon tweet");
+      if (isTweetMarket) {
+        log(`Current position: ${market?.question} (${market?.marketSlug})`);
+        return {
+          market,
+          token,
+          assetId,
+        };
+      }
     }
 
-    log(
-      `🚨 Top model changed to ${topModel.modelName} (${topModel.organization})`
-    );
+    log("No current position in Elon tweet markets");
+    return null;
+  } catch (err) {
+    log("Error getting current position:", err);
+    return null;
+  }
+}
 
-    const currentMonth = dayjs().format("MMM").toLowerCase();
-    const market = await db
-      .select()
-      .from(marketSchema)
-      .where(
-        and(
-          ilike(
-            marketSchema.marketSlug,
-            `%-have-the-top-ai-model-on-${currentMonth}%`
-          ),
-          eq(marketSchema.active, true),
-          eq(marketSchema.closed, false)
-        )
-      )
-      .then((markets) =>
-        markets.find((m) => m.question.toLowerCase().includes(topModelOrg))
-      );
-
-    if (!market) {
-      log(`No market found for ${topModel.organization}`);
-      return;
-    }
-
-    const yesToken = await db
-      .select()
-      .from(tokenSchema)
-      .where(eq(tokenSchema.marketId, market.id))
-      .then((tokens) => tokens.find((t) => t.outcome?.toLowerCase() === "yes"));
-
-    if (!yesToken?.tokenId) {
-      log(`No YES token found for market ${market.marketSlug}`);
-      return;
-    }
-
-    await sellAllPositions(yesToken.tokenId);
-
-    // Check if we already have this position
-    const currentBalance = await clobClient.getBalanceAllowance({
-      asset_type: AssetType.CONDITIONAL,
-      token_id: yesToken.tokenId,
+async function main() {
+  try {
+    // Get all active Elon tweet markets
+    const allMarkets = await findElonTweetMarkets();
+    console.log("All active Elon tweet markets:");
+    allMarkets.forEach((market) => {
+      console.log(`- ${market.question}`);
+      console.log(`  Range: ${market.min}-${market.max || "∞"}`);
+      console.log(`  Date: ${market.startDate} to ${market.endDate}`);
+      console.log(`  Market ID: ${market.marketId}`);
+      console.log(`  Slug: ${market.marketSlug}`);
+      console.log();
     });
 
-    // Only buy if we don't already have a significant position
-    if (BigInt(currentBalance.balance) <= MINIMUM_BALANCE) {
-      await buyPosition(yesToken.tokenId, topModelOrg);
-    } else {
-      log(`Already holding ${topModelOrg} position, no need to buy`);
-      currentModelOrg = topModelOrg;
+    // Get the currently active market based on date
+    const currentMarket = await getCurrentActiveMarket();
+    if (currentMarket) {
+      console.log("\nCurrent active market:");
+      console.log(`- ${currentMarket.question}`);
+      console.log(`  Range: ${currentMarket.min}-${currentMarket.max || "∞"}`);
+      console.log(
+        `  Date: ${currentMarket.startDate} to ${currentMarket.endDate}`
+      );
+    }
+
+    // Get current position
+    const currentPosition = await getCurrentPosition();
+    if (currentPosition) {
+      console.log("\nCurrent position:");
+      console.log(`- Market: ${currentPosition.market?.question}`);
+      console.log(`  Token: ${currentPosition.token.outcome}`);
+      console.log(`  Asset ID: ${currentPosition.assetId}`);
     }
   } catch (err) {
-    error("Error in bot cycle:", err);while (true) {
-      await runCycle();
-      await sleep(100);
-    }
-    
+    console.error("Error:", err);
   }
 }
 
-while (true) {
-  await runCycle();
-  await sleep(100);
-}
+main();
