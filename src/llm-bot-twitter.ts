@@ -137,16 +137,14 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
     // Parse the tweet range from the question
     const range = parseTweetRange(market.question);
     if (!range) {
-      log(`Skipping market ${market.marketSlug}: Could not parse tweet range`);
+      log(`Skipping market Could not parse tweet range`, market);
       continue;
     }
 
     // Parse the date range from the slug
     const dateRange = parseDateRangeFromSlug(market.marketSlug);
     if (!dateRange) {
-      log(
-        `Skipping market ${market.marketSlug}: Could not parse date range from slug`
-      );
+      log(`Skipping market Could not parse date range from slug`, market);
       continue;
     }
 
@@ -155,9 +153,7 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
     const endMonthNum = getMonthNumber(endMonth);
 
     if (!startMonthNum || !endMonthNum || isNaN(startDay) || isNaN(endDay)) {
-      log(
-        `Skipping market ${market.marketSlug}: Invalid date components parsed from slug`
-      );
+      log(`Skipping market Invalid date components parsed from slug`, market);
       continue;
     }
 
@@ -169,9 +165,7 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
     );
     if (potentialStartDate.isAfter(endDateActual)) {
       startYear--;
-      log(
-        `Adjusting start year to ${startYear} for market ${market.marketSlug}`
-      );
+      log(`Adjusting start year to ${startYear} for market `, market);
     }
 
     const formattedStartDate = dayjs(
@@ -218,25 +212,16 @@ async function getCurrentActiveMarket(
 }
 
 async function main() {
-  try {
-    log("Starting Elon tweet market tracking...");
+  const allMarkets = await findElonTweetMarkets();
 
-    const allMarkets = await findElonTweetMarkets();
-    log(`All Elon tweet markets found: ${allMarkets.length}`);
+  // console.log("Markets:", allMarkets);
 
-    // console.log("Markets:", allMarkets);
-
-    const currentMarket = await getCurrentActiveMarket(allMarkets);
-    if (currentMarket) {
-      log("\nCurrent active market:");
-      log(`- ${currentMarket.question}`);
-      log(`  Range: ${currentMarket.min}-${currentMarket.max ?? "∞"}`);
-      log(`  Date: ${currentMarket.startDate} to ${currentMarket.endDate}`);
-    }
-
-    log("Market tracking completed successfully");
-  } catch (err) {
-    log("Fatal error in market tracking:", err);
+  const currentMarket = await getCurrentActiveMarket(allMarkets);
+  if (currentMarket) {
+    log("\nCurrent active market:");
+    log(`- ${currentMarket.question}`);
+    log(`  Range: ${currentMarket.min}-${currentMarket.max ?? "∞"}`);
+    log(`  Date: ${currentMarket.startDate} to ${currentMarket.endDate}`);
   }
 }
 
