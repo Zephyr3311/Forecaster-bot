@@ -1,8 +1,8 @@
 import { log } from "console";
 import dayjs from "dayjs";
-import { and, eq, ilike } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "./db";
-import { marketSchema } from "./db/schema";
+import { marketSchema, tokenSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
 
 const wallet = getWallet(process.env.PK);
@@ -14,6 +14,7 @@ interface TweetRange {
   question: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
+  tokens: (typeof tokenSchema.$inferSelect)[];
 }
 
 function parseTweetRange(
@@ -58,7 +59,7 @@ function parseTweetRange(
 }
 
 function getDatesFromMarket(
-  market: any
+  market: Pick<typeof marketSchema.$inferSelect, "id" | "endDateIso">
 ): { startDate: string; endDate: string } | null {
   try {
     // Parse the end date from the ISO string
@@ -78,8 +79,9 @@ function getDatesFromMarket(
 }
 
 async function findElonTweetMarkets(): Promise<TweetRange[]> {
-  const tweetMarkets = await db
+  const markets = await db
     .select({
+      id: marketSchema.id,
       question: marketSchema.question,
       endDateIso: marketSchema.endDateIso,
     })
@@ -91,30 +93,39 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
       )
     );
 
-  log(`Found ${tweetMarkets.length} Elon tweet markets in DB`);
+  log(`Found ${markets.length} Elon tweet markets in DB`);
+
+  // Second query: Get tokens for these markets
+  const marketIds = markets.map((market) => market.id);
+  const tokens =
+    marketIds.length > 0
+      ? await db
+          .select()
+          .from(tokenSchema)
+          .where(inArray(tokenSchema.marketId, marketIds))
+      : [];
+
+  // Group tokens by marketId
+  const tokensByMarket = tokens.reduce((acc, token) => {
+    if (!acc[token.marketId]) {
+      acc[token.marketId] = [];
+    }
+    acc[token.marketId]?.push(token);
+    return acc;
+  }, {} as Record<number, typeof tokens>);
 
   const parsedMarkets: TweetRange[] = [];
 
-  for (const market of tweetMarkets) {
-    // Parse the tweet range from the question
-    const range = parseTweetRange(market.question);
-    if (!range) {
-      log(`Skipping market Could not parse tweet range`, market);
-      continue;
-    }
-
-    // Use ISO date directly rather than parsing from text
-    const dates = getDatesFromMarket(market);
-    if (!dates) {
-      log(`Skipping market Could not determine dates`, market);
-      continue;
-    }
+  for (const market of markets) {
+    const range = parseTweetRange(market.question)!;
+    const dates = getDatesFromMarket(market)!;
 
     parsedMarkets.push({
       ...range,
       question: market.question,
       startDate: dates.startDate,
       endDate: dates.endDate,
+      tokens: tokensByMarket[market.id] || [],
     });
 
     log(
