@@ -2,7 +2,7 @@ import { log } from "console";
 import dayjs from "dayjs";
 import { and, eq, ilike } from "drizzle-orm";
 import { db } from "./db";
-import { marketSchema, tokenSchema } from "./db/schema";
+import { marketSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
 
 const wallet = getWallet(process.env.PK);
@@ -16,6 +16,13 @@ interface TweetRange {
   question: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
+}
+
+interface DateRange {
+  startMonth: string;
+  startDay: number;
+  endMonth: string;
+  endDay: number;
 }
 
 function getMonthNumber(monthStr: string): number | null {
@@ -40,18 +47,65 @@ function getMonthNumber(monthStr: string): number | null {
 function parseTweetRange(
   question: string
 ): { min: number; max: number | null } | null {
+  // Pattern for ranges like "150-174 times"
   let match = question.match(/(\d+)-(\d+) times/);
   if (match?.[1] && match[2]) {
     return { min: parseInt(match[1], 10), max: parseInt(match[2], 10) };
   }
+
+  // Pattern for "less than X times"
   match = question.match(/less than (\d+) times/i);
   if (match?.[1]) {
     return { min: 0, max: parseInt(match[1], 10) - 1 };
   }
+
+  // Pattern for "X or more times"
   match = question.match(/(\d+) or more times/i);
   if (match?.[1]) {
     return { min: parseInt(match[1], 10), max: null };
   }
+
+  // Log failure to parse
+  log(`Could not parse tweet range from question: "${question}"`);
+  return null;
+}
+
+function parseDateRangeFromSlug(slug: string): DateRange | null {
+  // Try multiple regex patterns to handle various slug formats
+  const patterns = [
+    // Standard format: will-elon-tweet-150-174-times-october-4-11
+    /times-(\w+)-(\d+)(?:-(\w+))?-(\d+)$/,
+
+    // Alternative format: will-elon-tweet-less-than-150-times-oct-25-nov-1
+    /times-(\w+)-(\d+)(?:-(\w+))?-(\d+)(?:-\d+)?$/,
+
+    // Format with "tweet" instead of "times": elon-musk-of-tweets-january-17-24-will-elon-tweet-300-324-times-jan-17-24
+    /tweet-(\w+)-(\d+)(?:-(\w+))?-(\d+)(?:-\d+)?$/,
+
+    // Format with month abbreviations: will-elon-tweet-less-than-150-times-nov-1-8
+    /times-(\w+)-(\d+)-(\w+)-(\d+)$/,
+
+    // Format with "to": will-elon-tweet-400-or-more-times-april-11to18
+    /times-(\w+)-(\d+)(?:to|-)(\w+)?-?(\d+)$/,
+
+    // Catch-all for date ranges at the end
+    /-(\w+)-(\d+)(?:-(\w+))?-(\d+)$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = slug.match(pattern);
+    if (match && match[1] && match[2] && match[4]) {
+      return {
+        startMonth: match[1],
+        startDay: parseInt(match[2], 10),
+        endMonth: match[3] || match[1], // Use startMonth as default if endMonth isn't specified
+        endDay: parseInt(match[4], 10),
+      };
+    }
+  }
+
+  // More verbose logging for debugging
+  log(`Failed to parse date range from slug: "${slug}"`);
   return null;
 }
 
@@ -80,32 +134,25 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
     const endYear = endDateActual.year();
     const formattedEndDate = endDateActual.format("YYYY-MM-DD");
 
+    // Parse the tweet range from the question
     const range = parseTweetRange(market.question);
     if (!range) {
       log(`Skipping market ${market.marketSlug}: Could not parse tweet range`);
       continue;
     }
 
-    const dateRangeMatch = market.marketSlug.match(
-      /times-(\w+)-(\d+)(?:-(\w+))?-(\d+)$/
-    );
-    if (!dateRangeMatch) {
+    // Parse the date range from the slug
+    const dateRange = parseDateRangeFromSlug(market.marketSlug);
+    if (!dateRange) {
       log(
         `Skipping market ${market.marketSlug}: Could not parse date range from slug`
       );
       continue;
     }
 
-    const [, startMonthStr, startDayStr, endMonthStr, endDayStr] =
-      dateRangeMatch;
-    const startDay = parseInt(startDayStr!, 10);
-    const endDay = parseInt(endDayStr!, 10);
-    const startMonthNum = getMonthNumber(startMonthStr!);
-    const endMonthNum = getMonthNumber(endMonthStr || startMonthStr!); // Use start month if end month is absent
-
-    console.log(
-      `Parsed date range from slug: ${startMonthStr} ${startDay} to ${endMonthStr} ${endDay}`
-    );
+    const { startMonth, startDay, endMonth, endDay } = dateRange;
+    const startMonthNum = getMonthNumber(startMonth);
+    const endMonthNum = getMonthNumber(endMonth);
 
     if (!startMonthNum || !endMonthNum || isNaN(startDay) || isNaN(endDay)) {
       log(
@@ -114,40 +161,50 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
       continue;
     }
 
+    // Calculate the start year (handle year transitions)
     let startYear = endYear;
+    // If the start date with current year would be after end date, use previous year
     const potentialStartDate = dayjs(
       `${startYear}-${startMonthNum}-${startDay}`
     );
     if (potentialStartDate.isAfter(endDateActual)) {
       startYear--;
+      log(
+        `Adjusting start year to ${startYear} for market ${market.marketSlug}`
+      );
     }
+
     const formattedStartDate = dayjs(
       `${startYear}-${startMonthNum}-${startDay}`
     ).format("YYYY-MM-DD");
 
     parsedMarkets.push({
-      ...range, // Spread the parsed min/max
+      ...range,
       marketId: market.id,
       marketSlug: market.marketSlug,
       question: market.question,
       startDate: formattedStartDate,
       endDate: formattedEndDate,
     });
+
+    log(
+      `Successfully parsed market: ${market.question} (${formattedStartDate} to ${formattedEndDate})`
+    );
   }
 
   return parsedMarkets;
 }
 
-// --- getCurrentActiveMarket and getCurrentPosition remain unchanged ---
-async function getCurrentActiveMarket(): Promise<TweetRange | null> {
-  const markets = await findElonTweetMarkets();
-
+async function getCurrentActiveMarket(
+  markets: TweetRange[]
+): Promise<TweetRange | null> {
   if (markets.length === 0) {
     log("No active Elon tweet count markets found");
     return null;
   }
 
   const today = dayjs().format("YYYY-MM-DD");
+  log(`Checking for markets active on ${today}`);
 
   for (const market of markets) {
     if (today >= market.startDate && today <= market.endDate) {
@@ -160,83 +217,26 @@ async function getCurrentActiveMarket(): Promise<TweetRange | null> {
   return null;
 }
 
-async function getCurrentPosition() {
-  try {
-    const trades = await clobClient.getTrades();
-    const assetIds = [
-      ...new Set(
-        trades
-          .map((t) =>
-            t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
-          )
-          .filter(Boolean)
-      ),
-    ] as string[];
-
-    log(`Found ${assetIds.length} potential positions`);
-
-    for (const assetId of assetIds) {
-      const token = await db
-        .select()
-        .from(tokenSchema)
-        .where(eq(tokenSchema.tokenId, assetId))
-        .limit(1)
-        .then((results) => results[0]);
-
-      if (!token?.marketId) continue;
-
-      const market = await db
-        .select()
-        .from(marketSchema)
-        .where(eq(marketSchema.id, token.marketId))
-        .limit(1)
-        .then((results) => results[0]);
-
-      const isTweetMarket = market?.question.includes("Will Elon tweet");
-      if (isTweetMarket) {
-        log(`Current position: ${market?.question} (${market?.marketSlug})`);
-        return {
-          market,
-          token,
-          assetId,
-        };
-      }
-    }
-
-    log("No current position in Elon tweet markets");
-    return null;
-  } catch (err) {
-    log("Error getting current position:", err);
-    return null;
-  }
-}
-
 async function main() {
   try {
+    log("Starting Elon tweet market tracking...");
+
     const allMarkets = await findElonTweetMarkets();
-    console.log("All Elon tweet markets found:", allMarkets.length);
-    // Optionally log the full list if needed for debugging:
-    // console.log(JSON.stringify(allMarkets, null, 2));
+    log(`All Elon tweet markets found: ${allMarkets.length}`);
 
-    const currentMarket = await getCurrentActiveMarket();
+    // console.log("Markets:", allMarkets);
+
+    const currentMarket = await getCurrentActiveMarket(allMarkets);
     if (currentMarket) {
-      console.log("\nCurrent active market:");
-      console.log(`- ${currentMarket.question}`);
-      console.log(`  Range: ${currentMarket.min}-${currentMarket.max ?? "∞"}`);
-      console.log(
-        `  Date: ${currentMarket.startDate} to ${currentMarket.endDate}`
-      );
+      log("\nCurrent active market:");
+      log(`- ${currentMarket.question}`);
+      log(`  Range: ${currentMarket.min}-${currentMarket.max ?? "∞"}`);
+      log(`  Date: ${currentMarket.startDate} to ${currentMarket.endDate}`);
     }
 
-    const currentPosition = await getCurrentPosition();
-    if (currentPosition) {
-      console.log("\nCurrent position:");
-      console.log(`- Market: ${currentPosition.market?.question}`);
-      console.log(`  Token: ${currentPosition.token.outcome}`);
-      console.log(`  Asset ID: ${currentPosition.assetId}`);
-    }
+    log("Market tracking completed successfully");
   } catch (err) {
-    console.error("Error:", err);
+    log("Fatal error in market tracking:", err);
   }
 }
 
