@@ -107,9 +107,7 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
 
   // Group tokens by marketId
   const tokensByMarket = tokens.reduce((acc, token) => {
-    if (!acc[token.marketId]) {
-      acc[token.marketId] = [];
-    }
+    if (!acc[token.marketId]) acc[token.marketId] = [];
     acc[token.marketId]?.push(token);
     return acc;
   }, {} as Record<number, typeof tokens>);
@@ -129,7 +127,8 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
     });
 
     log(
-      `Successfully parsed market: ${market.question} (${dates.startDate} to ${dates.endDate})`
+      `Successfully parsed market: ${market.question} (${dates.startDate} to ${dates.endDate})`,
+      tokens
     );
   }
 
