@@ -29,7 +29,7 @@
     "dayjs": "^1.11.13",
     "dockerode": "^4.0.6",
     "drizzle-orm": "^0.43.1",
-    "ethers": "^6.13.5",
+    "ethers": "^6.13.7",
     "puppeteer-real-browser": "^1.4.2"
   },
   "devDependencies": {
