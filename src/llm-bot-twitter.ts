@@ -133,7 +133,7 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
 async function main() {
   const allMarkets = await findElonTweetMarkets();
 
-  const today = dayjs().subtract(21, "day").toDate();
+  const today = dayjs().subtract(0, "day").toDate();
   log(`Checking for markets active on ${dayjs(today).format("YYYY-MM-DD")}`);
 
   const activeMarkets = allMarkets
@@ -178,6 +178,8 @@ async function main() {
         { asset_id: yesToken.tokenId },
         next_cursor
       );
+
+      console.log(tradeResponse);
 
       if (tradeResponse.trades && tradeResponse.trades.length > 0) {
         allTrades = allTrades.concat(tradeResponse.trades);
