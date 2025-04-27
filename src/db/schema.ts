@@ -1,12 +1,14 @@
 import {
   boolean,
   decimal,
+  index,
   integer,
   pgTable,
   primaryKey,
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
@@ -15,7 +17,7 @@ export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
   rankStyleCtrl: integer("rank_style_ctrl").notNull(),
   model: text("model").notNull().unique(),
   modelName: text("model_name").notNull().unique(),
-  arenaScore: integer().notNull(),
+  arenaScore: integer("arena_score").notNull(),
   ci: text("ci").notNull(),
   votes: integer("votes").notNull(),
   organization: text("organization").notNull(),
@@ -117,3 +119,30 @@ export const rewardSchema = pgTable("reward", {
   minSize: integer("min_size").default(0),
   maxSpread: decimal("max_spread", { precision: 10, scale: 2 }).default("0"),
 });
+
+export const tradeHistorySchema = pgTable(
+  "trade_history",
+  {
+    id: serial("id").primaryKey(),
+    tokenId: text("token_id").notNull(),
+    marketId: integer("market_id")
+      .notNull()
+      .references(() => marketSchema.id, { onDelete: "cascade" }),
+    ts: integer("timestamp").notNull(),
+    time: timestamp("time").notNull(),
+    price: decimal("price", { precision: 10, scale: 6 }).notNull(),
+    volume: decimal("volume", { precision: 10, scale: 6 }).notNull(),
+    size: decimal("size", { precision: 14, scale: 6 }).notNull(),
+    outcome: text("outcome").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => {
+    return {
+      // Add indexes for efficient queries
+      tokenIdIdx: index("idx_trade_history_token_id").on(table.tokenId),
+      timestampIdx: index("idx_trade_history_timestamp").on(table.ts),
+      // Unique constraint to prevent duplicates
+      uniqTokenTime: uniqueIndex("uniq_token_ts").on(table.tokenId, table.ts),
+    };
+  }
+);

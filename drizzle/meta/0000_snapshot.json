@@ -1,5 +1,5 @@
 {
-  "id": "3b433c65-a39b-4c64-89de-fe7ff7207c76",
+  "id": "4a44dbe2-5cca-452e-88f1-275026c0e8d2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -38,8 +38,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "arenaScore": {
-          "name": "arenaScore",
+        "arena_score": {
+          "name": "arena_score",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -503,6 +503,146 @@
         "token_market_id_market_id_fk": {
           "name": "token_market_id_market_id_fk",
           "tableFrom": "token",
+          "tableTo": "market",
+          "columnsFrom": [
+            "market_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.trade_history": {
+      "name": "trade_history",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "token_id": {
+          "name": "token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_id": {
+          "name": "market_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(10, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "volume": {
+          "name": "volume",
+          "type": "numeric(10, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(14, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_trade_history_token_id": {
+          "name": "idx_trade_history_token_id",
+          "columns": [
+            {
+              "expression": "token_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_trade_history_timestamp": {
+          "name": "idx_trade_history_timestamp",
+          "columns": [
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "uniq_token_ts": {
+          "name": "uniq_token_ts",
+          "columns": [
+            {
+              "expression": "token_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "trade_history_market_id_market_id_fk": {
+          "name": "trade_history_market_id_market_id_fk",
+          "tableFrom": "trade_history",
           "tableTo": "market",
           "columnsFrom": [
             "market_id"
