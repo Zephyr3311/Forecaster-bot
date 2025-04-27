@@ -1,18 +1,22 @@
-import { type Trade } from "@polymarket/clob-client";
+import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { and, eq, ilike, inArray } from "drizzle-orm";
+import { formatUnits } from "ethers";
 import { db } from "./db";
 import { marketSchema, tokenSchema } from "./db/schema";
-import { getClobClient, getWallet } from "./utils/web3";
 
 dayjs.extend(utc);
-const wallet = getWallet(process.env.PK);
-const clobClient = getClobClient(wallet);
 
-export const INITIAL_CURSOR = "MA==";
-export const END_CURSOR = "LTE=";
+// --- Subgraph Endpoint ---
+const SUBGRAPH_ENDPOINT =
+  "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/orderbook-subgraph/prod/gn";
+
+// --- Constants ---
+const USDC_TOKEN_ID_STR = "0"; // USDC is represented as assetId 0 in OrderFilled events
+const COLLATERAL_DECIMALS = 6; // USDC decimals
+const MAX_RESULTS_PER_QUERY = 1000; // The Graph has a limit per query
 
 interface TweetRange {
   marketId: number;
@@ -23,6 +27,36 @@ interface TweetRange {
   startDateIso: Date;
   endDateIso: Date | null;
   tokens: (typeof tokenSchema.$inferSelect)[];
+}
+
+// Interface for the data returned by the subgraph query
+interface SubgraphOrderFilledEvent {
+  id: string; // tx_hash + log_index
+  transactionHash: string;
+  timestamp: string; // String representation of BigInt (Unix seconds)
+  maker: string;
+  taker: string;
+  makerAssetId: string; // String representation of BigInt
+  takerAssetId: string; // String representation of BigInt
+  makerAmountFilled: string; // String representation of BigInt
+  takerAmountFilled: string; // String representation of BigInt
+  fee: string; // String representation of BigInt
+}
+
+interface SubgraphResponse {
+  data: {
+    orderFilledEvents: SubgraphOrderFilledEvent[];
+  };
+  errors?: any[]; // Optional error field
+}
+
+interface MinutePriceData {
+  timestamp: number; // Unix timestamp (seconds) for the start of the minute
+  readableTime: string; // Human-readable UTC time
+  lastPrice: number;
+  volume: number; // Sum of USDC value traded (approximate)
+  sizeVolume: number; // Sum of shares traded
+  tradeCount: number;
 }
 
 function parseTweetRange(
@@ -66,7 +100,6 @@ function getDatesFromMarket(
       log(`Missing end date for market: ${market.id}`);
       return null;
     }
-
     return {
       startDateIso: dayjs(market.endDateIso).subtract(7, "day").toDate(),
     };
@@ -130,10 +163,186 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
   return parsedMarkets;
 }
 
+async function fetchAllTradesForToken(
+  tokenId: string,
+  startTs: number,
+  endTs: number
+): Promise<SubgraphOrderFilledEvent[]> {
+  let allTrades: SubgraphOrderFilledEvent[] = [];
+  let skip = 0;
+  let hasMore = true;
+
+  log(`Starting trade fetch for token ${tokenId}...`);
+
+  // First query for trades where the token is the makerAssetId
+  let makerQuery = `
+    query GetMakerTrades($tokenId: String!, $startTs: BigInt!, $endTs: BigInt!, $first: Int!, $skip: Int!) {
+      orderFilledEvents(
+        where: {
+          makerAssetId: $tokenId,
+          takerAssetId: "0",
+          timestamp_gte: $startTs,
+          timestamp_lte: $endTs
+        },
+        orderBy: timestamp,
+        orderDirection: asc,
+        first: $first,
+        skip: $skip
+      ) {
+        id
+        transactionHash
+        timestamp
+        maker
+        taker
+        makerAssetId
+        takerAssetId
+        makerAmountFilled
+        takerAmountFilled
+        fee
+      }
+    }
+  `;
+
+  // Try to fetch all maker trades
+  while (hasMore) {
+    try {
+      log(`Fetching MAKER trades (token as maker) with skip=${skip}...`);
+      
+      const response = await fetch(SUBGRAPH_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query: makerQuery, 
+          variables: {
+            tokenId: tokenId,
+            startTs: startTs.toString(),
+            endTs: endTs.toString(),
+            first: MAX_RESULTS_PER_QUERY,
+            skip: skip
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Query failed: ${response.status}`);
+      }
+      
+      const result: SubgraphResponse = await response.json();
+      
+      if (result.errors) {
+        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+      }
+      
+      const trades = result.data?.orderFilledEvents || [];
+      allTrades = allTrades.concat(trades);
+      
+      log(`Fetched ${trades.length} MAKER trades.`);
+      
+      if (trades.length < MAX_RESULTS_PER_QUERY) {
+        hasMore = false;
+      } else {
+        skip += MAX_RESULTS_PER_QUERY;
+      }
+      
+      await sleep(500);
+      
+    } catch (err) {
+      error(`Error fetching MAKER trades: ${err}`);
+      hasMore = false;
+    }
+  }
+  
+  // Reset for the second query
+  skip = 0;
+  hasMore = true;
+  
+  // Second query for trades where the token is the takerAssetId
+  let takerQuery = `
+    query GetTakerTrades($tokenId: String!, $startTs: BigInt!, $endTs: BigInt!, $first: Int!, $skip: Int!) {
+      orderFilledEvents(
+        where: {
+          makerAssetId: "0",
+          takerAssetId: $tokenId,
+          timestamp_gte: $startTs,
+          timestamp_lte: $endTs
+        },
+        orderBy: timestamp,
+        orderDirection: asc,
+        first: $first,
+        skip: $skip
+      ) {
+        id
+        transactionHash
+        timestamp
+        maker
+        taker
+        makerAssetId
+        takerAssetId
+        makerAmountFilled
+        takerAmountFilled
+        fee
+      }
+    }
+  `;
+  
+  // Try to fetch all taker trades
+  while (hasMore) {
+    try {
+      log(`Fetching TAKER trades (token as taker) with skip=${skip}...`);
+      
+      const response = await fetch(SUBGRAPH_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query: takerQuery, 
+          variables: {
+            tokenId: tokenId,
+            startTs: startTs.toString(),
+            endTs: endTs.toString(),
+            first: MAX_RESULTS_PER_QUERY,
+            skip: skip
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Query failed: ${response.status}`);
+      }
+      
+      const result: SubgraphResponse = await response.json();
+      
+      if (result.errors) {
+        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+      }
+      
+      const trades = result.data?.orderFilledEvents || [];
+      allTrades = allTrades.concat(trades);
+      
+      log(`Fetched ${trades.length} TAKER trades.`);
+      
+      if (trades.length < MAX_RESULTS_PER_QUERY) {
+        hasMore = false;
+      } else {
+        skip += MAX_RESULTS_PER_QUERY;
+      }
+      
+      await sleep(500);
+      
+    } catch (err) {
+      error(`Error fetching TAKER trades: ${err}`);
+      hasMore = false;
+    }
+  }
+  
+  log(`Finished fetching all trades for ${tokenId}. Total trades: ${allTrades.length}`);
+  return allTrades;
+}
+
 async function main() {
   const allMarkets = await findElonTweetMarkets();
 
-  const today = dayjs().subtract(0, "day").toDate();
+  // Find active markets based on current date (adjusted for test purposes)
+  const today = dayjs().subtract(21, "day").toDate();
   log(`Checking for markets active on ${dayjs(today).format("YYYY-MM-DD")}`);
 
   const activeMarkets = allMarkets
@@ -155,71 +364,137 @@ async function main() {
 
   if (!market) return log("No active markets found.");
 
-  const yesToken = market.tokens.find((token) =>
-    token.outcome?.toLowerCase().includes("yes")
-  );
+  log(`Processing market: "${market.question}"`);
 
-  if (!yesToken?.tokenId) return log("No YES token found for the market.");
+  // Create a map to store minute-by-minute price data for each token
+  const allMinuteHistories: Record<string, MinutePriceData[]> = {};
 
-  let allTrades: Trade[] = [];
-  let next_cursor: string | undefined = INITIAL_CURSOR;
-  let page = 1;
-  const startTs = dayjs(market.startDateIso).unix();
+  // We'll process both YES and NO outcomes for a complete market view
+  for (const token of market.tokens) {
+    if (!token.tokenId) {
+      log(`Token ID missing for outcome: ${token.outcome}`);
+      continue;
+    }
 
-  log(
-    `Fetching trades for market "${market.question}" since ${dayjs(
-      market.startDateIso
-    ).format("YYYY-MM-DD")}`
-  );
+    log(
+      `--- Processing outcome: ${token.outcome} (Token ID: ${token.tokenId}) ---`
+    );
 
-  while (next_cursor && next_cursor !== END_CURSOR) {
-    try {
-      const tradeResponse = await clobClient.getTradesPaginated(
-        { asset_id: yesToken.tokenId },
-        next_cursor
-      );
+    // Convert dates to Unix timestamps for the subgraph query
+    const startTs = dayjs(market.startDateIso).unix();
+    const endTs = market.endDateIso
+      ? dayjs(market.endDateIso).unix()
+      : dayjs().unix();
 
-      console.log(tradeResponse);
+    // Fetch historical trade data using the subgraph
+    const trades = await fetchAllTradesForToken(token.tokenId, startTs, endTs);
 
-      if (tradeResponse.trades && tradeResponse.trades.length > 0) {
-        allTrades = allTrades.concat(tradeResponse.trades);
-        log(
-          `Fetched ${tradeResponse.trades.length} trades (Total: ${allTrades.length})`
-        );
+    if (!trades.length) {
+      log(`No trades found for ${token.outcome} in the specified date range.`);
+      continue;
+    }
 
-        const oldestTradeTs = dayjs
-          .utc(
-            tradeResponse.trades[tradeResponse.trades.length - 1]?.match_time
+    // Aggregate trades into minute-by-minute data
+    const minuteData = new Map<number, MinutePriceData>();
+
+    for (const trade of trades) {
+      const timestamp = parseInt(trade.timestamp, 10);
+      const minuteTimestamp = dayjs
+        .unix(timestamp)
+        .utc()
+        .startOf("minute")
+        .unix();
+
+      let price: number;
+      let sizeShares: number;
+      let collateralAmount: number;
+
+      // Determine price and size based on which asset is USDC (ID "0")
+      if (trade.makerAssetId === USDC_TOKEN_ID_STR) {
+        // Buy order
+        const makerAmount = BigInt(trade.makerAmountFilled);
+        const takerAmount = BigInt(trade.takerAmountFilled);
+        if (takerAmount === 0n) continue; // Avoid division by zero
+        price = parseFloat(
+          formatUnits(
+            (makerAmount * 10n ** BigInt(COLLATERAL_DECIMALS)) / takerAmount,
+            COLLATERAL_DECIMALS
           )
-          .unix();
-
-        if (oldestTradeTs < startTs) {
-          log(
-            "Oldest trade in batch is before start date, stopping pagination"
-          );
-          break;
-        }
+        );
+        sizeShares = parseFloat(formatUnits(takerAmount, COLLATERAL_DECIMALS));
+        collateralAmount = parseFloat(
+          formatUnits(makerAmount, COLLATERAL_DECIMALS)
+        );
+      } else if (trade.takerAssetId === USDC_TOKEN_ID_STR) {
+        // Sell order
+        const makerAmount = BigInt(trade.makerAmountFilled);
+        const takerAmount = BigInt(trade.takerAmountFilled);
+        if (makerAmount === 0n) continue; // Avoid division by zero
+        price = parseFloat(
+          formatUnits(
+            (takerAmount * 10n ** BigInt(COLLATERAL_DECIMALS)) / makerAmount,
+            COLLATERAL_DECIMALS
+          )
+        );
+        sizeShares = parseFloat(formatUnits(makerAmount, COLLATERAL_DECIMALS));
+        collateralAmount = parseFloat(
+          formatUnits(takerAmount, COLLATERAL_DECIMALS)
+        );
       } else {
-        log("No more trades found in this page");
+        log(
+          `Warning: Trade ${trade.id} does not involve USDC directly, skipping.`
+        );
+        continue; // Skip trades not directly against USDC
       }
 
-      next_cursor = tradeResponse.next_cursor;
-      page++;
+      const existingData = minuteData.get(minuteTimestamp);
 
-      if (next_cursor && next_cursor !== END_CURSOR) {
-        log(`Fetching trades page ${page} (Cursor: ${atob(next_cursor)})...`);
+      if (!existingData) {
+        minuteData.set(minuteTimestamp, {
+          timestamp: minuteTimestamp,
+          readableTime: dayjs.unix(minuteTimestamp).utc().toISOString(),
+          lastPrice: price,
+          volume: collateralAmount,
+          sizeVolume: sizeShares,
+          tradeCount: 1,
+        });
+      } else {
+        existingData.lastPrice = price; // Last price in the minute
+        existingData.volume += collateralAmount;
+        existingData.sizeVolume += sizeShares;
+        existingData.tradeCount++;
       }
-    } catch (err) {
-      error(
-        `Error fetching trades for token ${yesToken.tokenId} (Page ${page}):`,
-        err
-      );
-      next_cursor = undefined;
+    }
+
+    // Sort the minute data by timestamp
+    const minuteHistory = Array.from(minuteData.values()).sort(
+      (a, b) => a.timestamp - b.timestamp
+    );
+
+    allMinuteHistories[token.tokenId] = minuteHistory;
+    log(
+      `Processed ${minuteHistory.length} minutes of price data for ${token.outcome}.`
+    );
+
+    // Show sample of the data for verification
+    if (minuteHistory.length > 0) {
+      log(`First 3 minutes of data for ${token.outcome}:`);
+      console.table(minuteHistory.slice(0, 3));
+
+      if (minuteHistory.length > 3) {
+        log(`Last 3 minutes of data for ${token.outcome}:`);
+        console.table(minuteHistory.slice(-3));
+      }
     }
   }
 
-  log(`Finished fetching all trades for market "${market.question}"`);
-  // Process the trades here
+  log("--- Processing complete ---");
+
+  // From this data, you can now:
+  // 1. Calculate the probability for each outcome
+  // 2. Track price movements over time
+  // 3. Identify significant trading events
+  // 4. Calculate total volume per day
 }
 
 main().catch((err) => {
