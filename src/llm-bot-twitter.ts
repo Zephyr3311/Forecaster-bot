@@ -1,5 +1,4 @@
 import { type Trade } from "@polymarket/clob-client";
-import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -171,8 +170,9 @@ async function main() {
   let allTrades: Trade[] = [];
   let next_cursor: string | undefined = INITIAL_CURSOR;
   let page = 1;
-
+  const startTs = dayjs(market.startDate).unix();
   log(`Fetching trades page ${page}...`);
+  
   while (next_cursor && next_cursor !== END_CURSOR) {
     try {
       const tradeResponse = await clobClient.getTradesPaginated(
