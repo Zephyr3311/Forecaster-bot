@@ -1,5 +1,5 @@
 {
-  "id": "4a44dbe2-5cca-452e-88f1-275026c0e8d2",
+  "id": "909bd23b-0b8a-4929-802a-5eb00b63791c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -562,13 +562,13 @@
         },
         "volume": {
           "name": "volume",
-          "type": "numeric(10, 6)",
+          "type": "numeric(14, 6)",
           "primaryKey": false,
           "notNull": true
         },
         "size": {
           "name": "size",
-          "type": "numeric(14, 6)",
+          "type": "numeric(20, 6)",
           "primaryKey": false,
           "notNull": true
         },

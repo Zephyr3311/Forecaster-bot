@@ -1,6 +1,6 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { writeFileSync } from "fs";
 import { db } from "./db";
 import {
@@ -40,9 +40,10 @@ async function getAllMarkets(): Promise<Market[]> {
 }
 
 async function upsertMarkets(marketsList: Market[]) {
+  const startTime = new Date();
   log(
     `Start inserting ${marketsList.length} markets into database...`,
-    new Date().toISOString()
+    startTime.toISOString()
   );
 
   // Process in batches of 100
@@ -60,7 +61,8 @@ async function upsertMarkets(marketsList: Market[]) {
 
     // Use Drizzle transaction for each batch
     await db.transaction(async (tx) => {
-      const markets = await Promise.all(
+      // First, insert all markets in batch and collect their IDs
+      const marketsWithIds = await Promise.all(
         batch.map(async (market) => {
           const marketData: typeof marketSchema.$inferInsert = {
             conditionId: market.condition_id,
@@ -113,62 +115,77 @@ async function upsertMarkets(marketsList: Market[]) {
         })
       );
 
-      // Delete related data within the transaction
-      for (const { dbId } of markets) {
-        await tx.delete(tokenSchema).where(eq(tokenSchema.marketId, dbId));
+      // Collect all dbIds for the batch
+      const batchIds = marketsWithIds.map((m) => m.dbId);
+
+      // Bulk delete related data for all markets in batch
+      if (batchIds.length > 0) {
+        await tx
+          .delete(tokenSchema)
+          .where(inArray(tokenSchema.marketId, batchIds));
         await tx
           .delete(marketTagSchema)
-          .where(eq(marketTagSchema.marketId, dbId));
-        await tx.delete(rewardSchema).where(eq(rewardSchema.marketId, dbId));
+          .where(inArray(marketTagSchema.marketId, batchIds));
+        await tx
+          .delete(rewardSchema)
+          .where(inArray(rewardSchema.marketId, batchIds));
         await tx
           .delete(rewardRateSchema)
-          .where(eq(rewardRateSchema.marketId, dbId));
+          .where(inArray(rewardRateSchema.marketId, batchIds));
       }
 
-      // Insert related data within the transaction
-      for (const { market, dbId } of markets) {
-        // Insert tokens
-        if (market.tokens?.length) {
-          await tx.insert(tokenSchema).values(
-            market.tokens.map((token) => ({
-              marketId: dbId,
-              tokenId: token.token_id,
-              outcome: token.outcome,
-              price: String(token.price),
-              winner: token.winner,
-            }))
-          );
-        }
-
-        // Insert tags
-        if (market.tags?.length) {
-          await tx.insert(marketTagSchema).values(
-            market.tags.map((tag) => ({
-              marketId: dbId,
-              tag,
-            }))
-          );
-        }
-
-        // Insert rewards
-        if (market.rewards) {
-          await tx.insert(rewardSchema).values({
+      // Prepare bulk insert data for all related entities
+      const tokens = marketsWithIds.flatMap(
+        ({ market, dbId }) =>
+          market.tokens?.map((token) => ({
             marketId: dbId,
-            minSize: market.rewards.min_size,
-            maxSpread: String(market.rewards.max_spread),
-          });
+            tokenId: token.token_id,
+            outcome: token.outcome,
+            price: String(token.price),
+            winner: token.winner,
+          })) || []
+      );
 
-          // Insert reward rates
-          if (market.rewards.rates?.length) {
-            await tx.insert(rewardRateSchema).values(
-              market.rewards.rates.map((rate) => ({
-                marketId: dbId,
-                assetAddress: rate.asset_address,
-                rewardsDailyRate: String(rate.rewards_daily_rate),
-              }))
-            );
-          }
-        }
+      const tags = marketsWithIds.flatMap(
+        ({ market, dbId }) =>
+          market.tags?.map((tag) => ({
+            marketId: dbId,
+            tag,
+          })) || []
+      );
+
+      const rewards = marketsWithIds
+        .filter(({ market }) => market.rewards)
+        .map(({ market, dbId }) => ({
+          marketId: dbId,
+          minSize: market.rewards!.min_size,
+          maxSpread: String(market.rewards!.max_spread),
+        }));
+
+      const rewardRates = marketsWithIds.flatMap(
+        ({ market, dbId }) =>
+          market.rewards?.rates?.map((rate) => ({
+            marketId: dbId,
+            assetAddress: rate.asset_address,
+            rewardsDailyRate: String(rate.rewards_daily_rate),
+          })) || []
+      );
+
+      // Bulk insert all related data
+      if (tokens.length > 0) {
+        await tx.insert(tokenSchema).values(tokens);
+      }
+
+      if (tags.length > 0) {
+        await tx.insert(marketTagSchema).values(tags);
+      }
+
+      if (rewards.length > 0) {
+        await tx.insert(rewardSchema).values(rewards);
+      }
+
+      if (rewardRates.length > 0) {
+        await tx.insert(rewardRateSchema).values(rewardRates);
       }
     });
 
@@ -178,18 +195,38 @@ async function upsertMarkets(marketsList: Market[]) {
     );
   }
 
+  const endTime = new Date();
+  const durationSecs = (endTime.getTime() - startTime.getTime()) / 1000;
   log(
-    `Finished inserting ${marketsList.length} markets into database successfully`,
-    new Date().toISOString()
+    `Finished inserting ${
+      marketsList.length
+    } markets into database successfully in ${durationSecs}s (${Math.round(
+      marketsList.length / durationSecs
+    )} markets/sec)`,
+    endTime.toISOString()
   );
 }
 
-try {
-  while (true) {
-    const allMarkets = await getAllMarkets();
-    writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
-    await upsertMarkets(allMarkets);
+async function main() {
+  try {
+    while (true) {
+      const startTime = new Date();
+      log(`Starting market sync at ${startTime.toISOString()}`);
+
+      const allMarkets = await getAllMarkets();
+      writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
+      await upsertMarkets(allMarkets);
+
+      log(`Waiting 5 minutes before next sync...`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  } catch (err) {
+    error("Error in main process:", err);
+    process.exit(1);
   }
-} catch (err) {
-  error("Error:", err);
 }
+
+main().catch((err) => {
+  error("Unhandled error:", err);
+  process.exit(1);
+});

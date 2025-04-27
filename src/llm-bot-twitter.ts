@@ -5,7 +5,7 @@ import utc from "dayjs/plugin/utc";
 import { and, eq, ilike, inArray } from "drizzle-orm";
 import { formatUnits } from "ethers";
 import { db } from "./db";
-import { marketSchema, tokenSchema } from "./db/schema";
+import { marketSchema, tokenSchema, tradeHistorySchema } from "./db/schema";
 
 dayjs.extend(utc);
 
@@ -15,6 +15,7 @@ const SUBGRAPH_URL =
 const USDC_ID = "0";
 const DECIMALS = 6;
 const MAX_RESULTS = 1000;
+const BATCH_SIZE = 100;
 
 // Types
 interface TweetRange {
@@ -219,6 +220,54 @@ async function fetchTradesBatch(
   }
 }
 
+async function saveTradesToDatabase(
+  marketId: number,
+  tokenId: string,
+  outcome: string,
+  trades: Trade[]
+): Promise<void> {
+  if (!trades.length) return;
+
+  log(`Saving ${trades.length} trades to database for ${outcome}`);
+
+  // Process in batches to avoid overwhelming the database
+  for (let i = 0; i < trades.length; i += BATCH_SIZE) {
+    const batch = trades.slice(i, i + BATCH_SIZE);
+    const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(trades.length / BATCH_SIZE);
+
+    log(`Saving batch ${batchNumber}/${totalBatches} (${batch.length} trades)`);
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(tradeHistorySchema)
+          .values(
+            batch.map((trade) => ({
+              tokenId,
+              marketId,
+              ts: trade.ts,
+              time: new Date(trade.time),
+              price: String(trade.price),
+              volume: String(trade.volume),
+              size: String(trade.size),
+              outcome,
+            }))
+          )
+          .onConflictDoNothing({
+            target: [tradeHistorySchema.tokenId, tradeHistorySchema.ts],
+          });
+      });
+
+      log(`Completed batch ${batchNumber}/${totalBatches}`);
+    } catch (err) {
+      error(`Error saving batch ${batchNumber}:`, err);
+    }
+  }
+
+  log(`Completed saving all trades for ${outcome}`);
+}
+
 async function main() {
   const markets = await findElonTweetMarkets();
   const now = dayjs().toDate();
@@ -234,32 +283,44 @@ async function main() {
     return groups;
   }, {} as Record<string, TweetRange[]>);
 
-  const market = Object.values(groupedMarkets)[0]?.[0];
-  if (!market) return log("No active markets found.");
+  // Process each market group
+  for (const marketGroup of Object.values(groupedMarkets)) {
+    for (const market of marketGroup) {
+      log(`Processing market: "${market.question}"`);
 
-  log(`Processing market: "${market.question}"`);
+      for (const token of market.tokens) {
+        if (!token.tokenId) continue;
 
-  const tradeHistory: Record<string, Trade[]> = {};
+        log(`--- Processing ${token.outcome} ---`);
 
-  for (const token of market.tokens) {
-    if (!token.tokenId) continue;
+        const startTs = dayjs(market.startDateIso).unix();
+        const endTs = market.endDateIso
+          ? dayjs(market.endDateIso).unix()
+          : dayjs().unix();
 
-    log(`--- Processing ${token.outcome} ---`);
+        const trades = await fetchTrades(token.tokenId, startTs, endTs);
 
-    const startTs = dayjs(market.startDateIso).unix();
-    const endTs = market.endDateIso
-      ? dayjs(market.endDateIso).unix()
-      : dayjs().unix();
+        if (!trades.length) {
+          log(`No trades found for ${token.outcome}`);
+          continue;
+        }
 
-    const trades = await fetchTrades(token.tokenId, startTs, endTs);
-    tradeHistory[token.tokenId] = trades;
+        log(`Processed ${trades.length} trades for ${token.outcome}`);
+        console.table(trades.slice(0, 10));
+        console.table(trades.slice(-10));
 
-    log(`Processed ${trades.length} trades for ${token.outcome}`);
-    console.table(trades.slice(0, 10));
-    console.table(trades.slice(-10));
+        // Save the trades to the database
+        await saveTradesToDatabase(
+          market.marketId,
+          token.tokenId,
+          token.outcome || "",
+          trades
+        );
+      }
+    }
   }
 
-  return tradeHistory;
+  log("Trade history processing complete");
 }
 
 main().catch((err) => {

@@ -82,8 +82,8 @@ CREATE TABLE "trade_history" (
 	"timestamp" integer NOT NULL,
 	"time" timestamp NOT NULL,
 	"price" numeric(10, 6) NOT NULL,
-	"volume" numeric(10, 6) NOT NULL,
-	"size" numeric(14, 6) NOT NULL,
+	"volume" numeric(14, 6) NOT NULL,
+	"size" numeric(20, 6) NOT NULL,
 	"outcome" text NOT NULL,
 	"created_at" timestamp DEFAULT now()
 );
