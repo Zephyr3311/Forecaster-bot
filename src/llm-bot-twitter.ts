@@ -28,15 +28,6 @@ interface TweetRange {
   tokens: (typeof tokenSchema.$inferSelect)[];
 }
 
-interface TradeEvent {
-  id: string;
-  timestamp: string;
-  makerAssetId: string;
-  takerAssetId: string;
-  makerAmountFilled: string;
-  takerAmountFilled: string;
-}
-
 interface Trade {
   ts: number;
   time: string;
@@ -230,11 +221,11 @@ async function fetchTradesBatch(
 
 async function main() {
   const markets = await findElonTweetMarkets();
+  const now = dayjs().toDate();
   const activeMarkets = markets
-    .filter((m) => {
-      const now = dayjs().toDate();
-      return now >= m.startDateIso && (!m.endDateIso || now <= m.endDateIso);
-    })
+    .filter(
+      (m) => now >= m.startDateIso && (!m.endDateIso || now <= m.endDateIso)
+    )
     .sort((a, b) => a.min - b.min);
 
   const groupedMarkets = activeMarkets.reduce((groups, market) => {
