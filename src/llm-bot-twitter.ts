@@ -9,495 +9,336 @@ import { marketSchema, tokenSchema } from "./db/schema";
 
 dayjs.extend(utc);
 
-// --- Subgraph Endpoint ---
-const SUBGRAPH_ENDPOINT =
-  "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/orderbook-subgraph/prod/gn";
+// Constants
+const SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/orderbook-subgraph/prod/gn";
+const USDC_ID = "0";
+const DECIMALS = 6;
+const MAX_RESULTS = 1000;
 
-// --- Constants ---
-const USDC_TOKEN_ID_STR = "0"; // USDC is represented as assetId 0 in OrderFilled events
-const COLLATERAL_DECIMALS = 6; // USDC decimals
-const MAX_RESULTS_PER_QUERY = 1000; // The Graph has a limit per query
-
+// Types
 interface TweetRange {
   marketId: number;
   questionId: string;
   question: string;
   min: number;
-  max: number | null; // null means "or more"
+  max: number | null;
   startDateIso: Date;
   endDateIso: Date | null;
   tokens: (typeof tokenSchema.$inferSelect)[];
 }
 
-// Interface for the data returned by the subgraph query
-interface SubgraphOrderFilledEvent {
-  id: string; // tx_hash + log_index
-  transactionHash: string;
-  timestamp: string; // String representation of BigInt (Unix seconds)
-  maker: string;
-  taker: string;
-  makerAssetId: string; // String representation of BigInt
-  takerAssetId: string; // String representation of BigInt
-  makerAmountFilled: string; // String representation of BigInt
-  takerAmountFilled: string; // String representation of BigInt
-  fee: string; // String representation of BigInt
+interface TradeEvent {
+  id: string;
+  timestamp: string;
+  makerAssetId: string;
+  takerAssetId: string;
+  makerAmountFilled: string;
+  takerAmountFilled: string;
 }
 
-interface SubgraphResponse {
-  data: {
-    orderFilledEvents: SubgraphOrderFilledEvent[];
-  };
-  errors?: any[]; // Optional error field
+interface TradePoint {
+  ts: number;
+  time: string;
+  price: number;
+  volume: number;
+  size: number;
+  count: number;
 }
 
-interface MinutePriceData {
-  timestamp: number; // Unix timestamp (seconds) for the start of the minute
-  readableTime: string; // Human-readable UTC time
-  lastPrice: number;
-  volume: number; // Sum of USDC value traded (approximate)
-  sizeVolume: number; // Sum of shares traded
-  tradeCount: number;
-}
-
-function parseTweetRange(
-  question: string
-): { min: number; max: number | null } | null {
-  const normalizedQuestion = question.replace(/–/g, "-");
-
-  // Pattern for standard ranges (e.g., "150-174 times")
-  let match = normalizedQuestion.match(/(\d+)\s*-\s*(\d+)\s+times/i);
-  if (match?.[1] && match[2]) {
-    return { min: parseInt(match[1], 10), max: parseInt(match[2], 10) };
-  }
-
-  // Pattern for "less than X times"
-  match = normalizedQuestion.match(/less\s+than\s+(\d+)\s+times/i);
-  if (match?.[1]) {
-    return { min: 0, max: parseInt(match[1], 10) - 1 };
-  }
-
-  // Pattern for "X or more times"
-  match = normalizedQuestion.match(/(\d+)\s+or\s+more\s+times/i);
-  if (match?.[1]) {
-    return { min: parseInt(match[1], 10), max: null };
-  }
-
-  // Fallback pattern for any numbers followed by times
-  match = normalizedQuestion.match(/(\d+)\s*-\s*(\d+).*?times/i);
-  if (match?.[1] && match[2]) {
-    return { min: parseInt(match[1], 10), max: parseInt(match[2], 10) };
-  }
-
-  log(`Could not parse tweet range from question: "${question}"`);
+// Parse tweet range from market question
+function parseTweetRange(question: string): { min: number; max: number | null } | null {
+  const q = question.replace(/–/g, "-");
+  
+  let m = q.match(/(\d+)\s*-\s*(\d+)\s+times/i);
+  if (m?.[1] && m[2]) return { min: parseInt(m[1], 10), max: parseInt(m[2], 10) };
+  
+  m = q.match(/less\s+than\s+(\d+)\s+times/i);
+  if (m?.[1]) return { min: 0, max: parseInt(m[1], 10) - 1 };
+  
+  m = q.match(/(\d+)\s+or\s+more\s+times/i);
+  if (m?.[1]) return { min: parseInt(m[1], 10), max: null };
+  
+  m = q.match(/(\d+)\s*-\s*(\d+).*?times/i);
+  if (m?.[1] && m[2]) return { min: parseInt(m[1], 10), max: parseInt(m[2], 10) };
+  
+  log(`Could not parse range from: "${question}"`);
   return null;
 }
 
-function getDatesFromMarket(
-  market: Pick<typeof marketSchema.$inferSelect, "id" | "endDateIso">
-): { startDateIso: Date } | null {
-  try {
-    if (!market.endDateIso) {
-      log(`Missing end date for market: ${market.id}`);
-      return null;
-    }
-    return {
-      startDateIso: dayjs(market.endDateIso).subtract(7, "day").toDate(),
-    };
-  } catch (err) {
-    log(`Failed to calculate dates for market: ${market.id}`);
-    return null;
-  }
+// Get market dates
+function getMarketDates(market: Pick<typeof marketSchema.$inferSelect, "id" | "endDateIso">): { startDateIso: Date } | null {
+  if (!market.endDateIso) return null;
+  return { startDateIso: dayjs(market.endDateIso).subtract(7, "day").toDate() };
 }
 
+// Find Elon tweet markets
 async function findElonTweetMarkets(): Promise<TweetRange[]> {
   const markets = await db
-    .select({
-      id: marketSchema.id,
-      question: marketSchema.question,
-      questionId: marketSchema.questionId,
-      endDateIso: marketSchema.endDateIso,
-    })
+    .select({ id: marketSchema.id, question: marketSchema.question, questionId: marketSchema.questionId, endDateIso: marketSchema.endDateIso })
     .from(marketSchema)
-    .where(
-      and(
-        ilike(marketSchema.question, "Will Elon tweet % times %"),
-        eq(marketSchema.active, true)
-      )
-    );
+    .where(and(ilike(marketSchema.question, "Will Elon tweet % times %"), eq(marketSchema.active, true)));
 
-  const marketIds = markets.map((market) => market.id);
-  const tokens =
-    marketIds.length > 0
-      ? await db
-          .select()
-          .from(tokenSchema)
-          .where(inArray(tokenSchema.marketId, marketIds))
-      : [];
-
+  if (markets.length === 0) return [];
+  
+  const marketIds = markets.map(m => m.id);
+  const tokens = await db.select().from(tokenSchema).where(inArray(tokenSchema.marketId, marketIds));
+  
   const tokensByMarket = tokens.reduce((acc, token) => {
-    if (!acc[token.marketId]) acc[token.marketId] = [];
-    acc[token.marketId]?.push(token);
+    (acc[token.marketId] ??= []).push(token);
     return acc;
-  }, {} as Record<number, (typeof tokenSchema.$inferSelect)[]>);
-
-  const parsedMarkets: TweetRange[] = [];
-
-  for (const market of markets) {
-    const range = parseTweetRange(market.question);
-    if (!range) continue;
-
-    const dates = getDatesFromMarket(market);
-    if (!dates) continue;
-
-    parsedMarkets.push({
-      ...range,
-      marketId: market.id,
-      questionId: market.questionId,
-      question: market.question,
-      startDateIso: dates.startDateIso,
-      endDateIso: market.endDateIso,
-      tokens: tokensByMarket[market.id] || [],
-    });
-  }
-
-  return parsedMarkets;
+  }, {} as Record<number, typeof tokens>);
+  
+  return markets
+    .map(market => {
+      const range = parseTweetRange(market.question);
+      const dates = getMarketDates(market);
+      if (!range || !dates) return null;
+      
+      return {
+        ...range,
+        marketId: market.id,
+        questionId: market.questionId,
+        question: market.question,
+        startDateIso: dates.startDateIso,
+        endDateIso: market.endDateIso,
+        tokens: tokensByMarket[market.id] || []
+      };
+    })
+    .filter(Boolean) as TweetRange[];
 }
 
-async function fetchAllTradesForToken(
-  tokenId: string,
-  startTs: number,
-  endTs: number
-): Promise<SubgraphOrderFilledEvent[]> {
-  let allTrades: SubgraphOrderFilledEvent[] = [];
-  let skip = 0;
-  let hasMore = true;
-
-  log(`Starting trade fetch for token ${tokenId}...`);
-
-  // First query for trades where the token is the makerAssetId
-  let makerQuery = `
-    query GetMakerTrades($tokenId: String!, $startTs: BigInt!, $endTs: BigInt!, $first: Int!, $skip: Int!) {
-      orderFilledEvents(
-        where: {
-          makerAssetId: $tokenId,
-          takerAssetId: "0",
-          timestamp_gte: $startTs,
-          timestamp_lte: $endTs
-        },
-        orderBy: timestamp,
-        orderDirection: asc,
-        first: $first,
-        skip: $skip
-      ) {
-        id
-        transactionHash
-        timestamp
-        maker
-        taker
-        makerAssetId
-        takerAssetId
-        makerAmountFilled
-        takerAmountFilled
-        fee
-      }
-    }
-  `;
-
-  // Try to fetch all maker trades
-  while (hasMore) {
-    try {
-      log(`Fetching MAKER trades (token as maker) with skip=${skip}...`);
-      
-      const response = await fetch(SUBGRAPH_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          query: makerQuery, 
-          variables: {
-            tokenId: tokenId,
-            startTs: startTs.toString(),
-            endTs: endTs.toString(),
-            first: MAX_RESULTS_PER_QUERY,
-            skip: skip
-          }
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Query failed: ${response.status}`);
-      }
-      
-      const result: SubgraphResponse = await response.json();
-      
-      if (result.errors) {
-        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
-      }
-      
-      const trades = result.data?.orderFilledEvents || [];
-      allTrades = allTrades.concat(trades);
-      
-      log(`Fetched ${trades.length} MAKER trades.`);
-      
-      if (trades.length < MAX_RESULTS_PER_QUERY) {
-        hasMore = false;
-      } else {
-        skip += MAX_RESULTS_PER_QUERY;
-      }
-      
-      await sleep(500);
-      
-    } catch (err) {
-      error(`Error fetching MAKER trades: ${err}`);
-      hasMore = false;
-    }
-  }
+// Fetch trades for a token
+async function fetchTrades(tokenId: string, startTs: number, endTs: number): Promise<TradeEvent[]> {
+  const allTrades: TradeEvent[] = [];
   
-  // Reset for the second query
-  skip = 0;
-  hasMore = true;
+  // Fetch maker trades (token sold for USDC)
+  await fetchTradesBatch(allTrades, tokenId, startTs, endTs, true);
   
-  // Second query for trades where the token is the takerAssetId
-  let takerQuery = `
-    query GetTakerTrades($tokenId: String!, $startTs: BigInt!, $endTs: BigInt!, $first: Int!, $skip: Int!) {
-      orderFilledEvents(
-        where: {
-          makerAssetId: "0",
-          takerAssetId: $tokenId,
-          timestamp_gte: $startTs,
-          timestamp_lte: $endTs
-        },
-        orderBy: timestamp,
-        orderDirection: asc,
-        first: $first,
-        skip: $skip
-      ) {
-        id
-        transactionHash
-        timestamp
-        maker
-        taker
-        makerAssetId
-        takerAssetId
-        makerAmountFilled
-        takerAmountFilled
-        fee
-      }
-    }
-  `;
+  // Fetch taker trades (token bought with USDC)
+  await fetchTradesBatch(allTrades, tokenId, startTs, endTs, false);
   
-  // Try to fetch all taker trades
-  while (hasMore) {
-    try {
-      log(`Fetching TAKER trades (token as taker) with skip=${skip}...`);
-      
-      const response = await fetch(SUBGRAPH_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          query: takerQuery, 
-          variables: {
-            tokenId: tokenId,
-            startTs: startTs.toString(),
-            endTs: endTs.toString(),
-            first: MAX_RESULTS_PER_QUERY,
-            skip: skip
-          }
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Query failed: ${response.status}`);
-      }
-      
-      const result: SubgraphResponse = await response.json();
-      
-      if (result.errors) {
-        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
-      }
-      
-      const trades = result.data?.orderFilledEvents || [];
-      allTrades = allTrades.concat(trades);
-      
-      log(`Fetched ${trades.length} TAKER trades.`);
-      
-      if (trades.length < MAX_RESULTS_PER_QUERY) {
-        hasMore = false;
-      } else {
-        skip += MAX_RESULTS_PER_QUERY;
-      }
-      
-      await sleep(500);
-      
-    } catch (err) {
-      error(`Error fetching TAKER trades: ${err}`);
-      hasMore = false;
-    }
-  }
-  
-  log(`Finished fetching all trades for ${tokenId}. Total trades: ${allTrades.length}`);
+  log(`Total trades for ${tokenId}: ${allTrades.length}`);
   return allTrades;
 }
 
+// Helper to fetch one side of trades
+async function fetchTradesBatch(trades: TradeEvent[], tokenId: string, startTs: number, endTs: number, isMaker: boolean): Promise<void> {
+  let skip = 0;
+  let hasMore = true;
+  const tradeType = isMaker ? "MAKER" : "TAKER";
+  
+  const query = `
+    query GetTrades($tokenId: String!, $usdcId: String!, $startTs: BigInt!, $endTs: BigInt!, $first: Int!, $skip: Int!) {
+      orderFilledEvents(
+        where: {
+          ${isMaker ? `makerAssetId: $tokenId, takerAssetId: $usdcId` : `makerAssetId: $usdcId, takerAssetId: $tokenId`},
+          timestamp_gte: $startTs,
+          timestamp_lte: $endTs
+        },
+        orderBy: timestamp,
+        orderDirection: asc,
+        first: $first,
+        skip: $skip
+      ) {
+        id
+        timestamp
+        makerAssetId
+        takerAssetId
+        makerAmountFilled
+        takerAmountFilled
+      }
+    }
+  `;
+
+  while (hasMore) {
+    try {
+      log(`Fetching ${tradeType} trades with skip=${skip}...`);
+      
+      const res = await fetch(SUBGRAPH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query, 
+          variables: {
+            tokenId,
+            usdcId: USDC_ID,
+            startTs: startTs.toString(),
+            endTs: endTs.toString(),
+            first: MAX_RESULTS,
+            skip
+          }
+        })
+      });
+      
+      if (!res.ok) throw new Error(`Query failed: ${res.status}`);
+      
+      const data = await res.json();
+      if (data.errors) throw new Error(JSON.stringify(data.errors));
+      
+      const batch = data.data?.orderFilledEvents || [];
+      trades.push(...batch);
+      
+      log(`Fetched ${batch.length} ${tradeType} trades.`);
+      
+      hasMore = batch.length === MAX_RESULTS;
+      if (hasMore) skip += MAX_RESULTS;
+      
+      await sleep(250);
+    } catch (err) {
+      error(`Error fetching ${tradeType} trades:`, err);
+      hasMore = false;
+    }
+  }
+}
+
+// Process trades into different time granularities
+function processTrades(trades: TradeEvent[]) {
+  // Process second-level data (raw timestamps)
+  const secondData = processTradesAtGranularity(trades, 1);
+  
+  // Also process minute-level data for smoother visualization
+  const minuteData = processTradesAtGranularity(trades, 60);
+  
+  return { secondData, minuteData };
+}
+
+// Process trades at a specific time granularity
+function processTradesAtGranularity(trades: TradeEvent[], intervalSeconds: number): TradePoint[] {
+  const dataPoints = new Map<number, TradePoint>();
+  
+  for (const trade of trades) {
+    const rawTs = parseInt(trade.timestamp, 10);
+    // Round down to the nearest interval
+    const ts = Math.floor(rawTs / intervalSeconds) * intervalSeconds;
+    
+    // Calculate price and volume
+    const isBuy = trade.makerAssetId === USDC_ID;
+    const baseAmount = BigInt(isBuy ? trade.takerAmountFilled : trade.makerAmountFilled);
+    const quoteAmount = BigInt(isBuy ? trade.makerAmountFilled : trade.takerAmountFilled);
+    
+    if (baseAmount === 0n) continue;
+    
+    const price = parseFloat(formatUnits(
+      (quoteAmount * 10n**BigInt(DECIMALS)) / baseAmount,
+      DECIMALS
+    ));
+    
+    const size = parseFloat(formatUnits(baseAmount, DECIMALS));
+    const volume = parseFloat(formatUnits(quoteAmount, DECIMALS));
+    
+    // Store at proper time interval
+    const existing = dataPoints.get(ts);
+    
+    if (!existing) {
+      dataPoints.set(ts, {
+        ts,
+        time: dayjs.unix(ts).utc().toISOString(),
+        price,
+        volume,
+        size,
+        count: 1
+      });
+    } else {
+      existing.price = price; // Last price in interval
+      existing.volume += volume;
+      existing.size += size;
+      existing.count++;
+    }
+  }
+  
+  return Array.from(dataPoints.values()).sort((a, b) => a.ts - b.ts);
+}
+
+// Main function
 async function main() {
-  const allMarkets = await findElonTweetMarkets();
-
-  // Find active markets based on current date (adjusted for test purposes)
-  const today = dayjs().subtract(21, "day").toDate();
-  log(`Checking for markets active on ${dayjs(today).format("YYYY-MM-DD")}`);
-
-  const activeMarkets = allMarkets
-    .filter(
-      (market) =>
-        today >= market.startDateIso &&
-        (market.endDateIso ? today <= market.endDateIso : true)
+  const markets = await findElonTweetMarkets();
+  
+  const referenceDate = dayjs().subtract(0, "day").toDate();
+  log(`Finding markets active on ${dayjs(referenceDate).format("YYYY-MM-DD")}`);
+  
+  const activeMarkets = markets
+    .filter(m => 
+      referenceDate >= m.startDateIso && 
+      (m.endDateIso ? referenceDate <= m.endDateIso : true)
     )
     .sort((a, b) => a.min - b.min);
-
+  
   const groupedMarkets = activeMarkets.reduce((groups, market) => {
-    const basePattern = market.questionId.substring(0, 60);
-    (groups[basePattern] ||= []).push(market);
+    const key = market.questionId.substring(0, 60);
+    (groups[key] ??= []).push(market);
     return groups;
   }, {} as Record<string, TweetRange[]>);
-
-  const markets = Object.values(groupedMarkets)[0];
-  const market = markets?.[0];
-
+  
+  const marketGroup = Object.values(groupedMarkets)[0];
+  const market = marketGroup?.[0];
+  
   if (!market) return log("No active markets found.");
-
+  
   log(`Processing market: "${market.question}"`);
-
-  // Create a map to store minute-by-minute price data for each token
-  const allMinuteHistories: Record<string, MinutePriceData[]> = {};
-
-  // We'll process both YES and NO outcomes for a complete market view
+  
+  const tradeHistoryByToken: Record<string, {
+    second: TradePoint[],
+    minute: TradePoint[]
+  }> = {};
+  
+  // Process each token (YES/NO)
   for (const token of market.tokens) {
     if (!token.tokenId) {
       log(`Token ID missing for outcome: ${token.outcome}`);
       continue;
     }
-
-    log(
-      `--- Processing outcome: ${token.outcome} (Token ID: ${token.tokenId}) ---`
-    );
-
-    // Convert dates to Unix timestamps for the subgraph query
+    
+    log(`--- Processing ${token.outcome} (ID: ${token.tokenId.slice(0, 8)}...) ---`);
+    
     const startTs = dayjs(market.startDateIso).unix();
-    const endTs = market.endDateIso
-      ? dayjs(market.endDateIso).unix()
-      : dayjs().unix();
-
-    // Fetch historical trade data using the subgraph
-    const trades = await fetchAllTradesForToken(token.tokenId, startTs, endTs);
-
-    if (!trades.length) {
-      log(`No trades found for ${token.outcome} in the specified date range.`);
+    const endTs = market.endDateIso ? dayjs(market.endDateIso).unix() : dayjs().unix();
+    
+    const trades = await fetchTrades(token.tokenId, startTs, endTs);
+    
+    if (trades.length === 0) {
+      log(`No trades found for ${token.outcome}`);
       continue;
     }
-
-    // Aggregate trades into minute-by-minute data
-    const minuteData = new Map<number, MinutePriceData>();
-
-    for (const trade of trades) {
-      const timestamp = parseInt(trade.timestamp, 10);
-      const minuteTimestamp = dayjs
-        .unix(timestamp)
-        .utc()
-        .startOf("minute")
-        .unix();
-
-      let price: number;
-      let sizeShares: number;
-      let collateralAmount: number;
-
-      // Determine price and size based on which asset is USDC (ID "0")
-      if (trade.makerAssetId === USDC_TOKEN_ID_STR) {
-        // Buy order
-        const makerAmount = BigInt(trade.makerAmountFilled);
-        const takerAmount = BigInt(trade.takerAmountFilled);
-        if (takerAmount === 0n) continue; // Avoid division by zero
-        price = parseFloat(
-          formatUnits(
-            (makerAmount * 10n ** BigInt(COLLATERAL_DECIMALS)) / takerAmount,
-            COLLATERAL_DECIMALS
-          )
-        );
-        sizeShares = parseFloat(formatUnits(takerAmount, COLLATERAL_DECIMALS));
-        collateralAmount = parseFloat(
-          formatUnits(makerAmount, COLLATERAL_DECIMALS)
-        );
-      } else if (trade.takerAssetId === USDC_TOKEN_ID_STR) {
-        // Sell order
-        const makerAmount = BigInt(trade.makerAmountFilled);
-        const takerAmount = BigInt(trade.takerAmountFilled);
-        if (makerAmount === 0n) continue; // Avoid division by zero
-        price = parseFloat(
-          formatUnits(
-            (takerAmount * 10n ** BigInt(COLLATERAL_DECIMALS)) / makerAmount,
-            COLLATERAL_DECIMALS
-          )
-        );
-        sizeShares = parseFloat(formatUnits(makerAmount, COLLATERAL_DECIMALS));
-        collateralAmount = parseFloat(
-          formatUnits(takerAmount, COLLATERAL_DECIMALS)
-        );
-      } else {
-        log(
-          `Warning: Trade ${trade.id} does not involve USDC directly, skipping.`
-        );
-        continue; // Skip trades not directly against USDC
-      }
-
-      const existingData = minuteData.get(minuteTimestamp);
-
-      if (!existingData) {
-        minuteData.set(minuteTimestamp, {
-          timestamp: minuteTimestamp,
-          readableTime: dayjs.unix(minuteTimestamp).utc().toISOString(),
-          lastPrice: price,
-          volume: collateralAmount,
-          sizeVolume: sizeShares,
-          tradeCount: 1,
-        });
-      } else {
-        existingData.lastPrice = price; // Last price in the minute
-        existingData.volume += collateralAmount;
-        existingData.sizeVolume += sizeShares;
-        existingData.tradeCount++;
+    
+    // Process into multiple time granularities
+    const { secondData, minuteData } = processTrades(trades);
+    tradeHistoryByToken[token.tokenId] = {
+      second: secondData,
+      minute: minuteData
+    };
+    
+    log(`Processed ${secondData.length} seconds and ${minuteData.length} minutes of data for ${token.outcome}`);
+    
+    // Show samples of second-level data
+    if (secondData.length > 0) {
+      log(`First 3 seconds of data for ${token.outcome}:`);
+      console.table(secondData.slice(0, 10));
+      
+      if (secondData.length > 3) {
+        log(`Last 3 seconds of data for ${token.outcome}:`);
+        console.table(secondData.slice(-10));
       }
     }
-
-    // Sort the minute data by timestamp
-    const minuteHistory = Array.from(minuteData.values()).sort(
-      (a, b) => a.timestamp - b.timestamp
-    );
-
-    allMinuteHistories[token.tokenId] = minuteHistory;
-    log(
-      `Processed ${minuteHistory.length} minutes of price data for ${token.outcome}.`
-    );
-
-    // Show sample of the data for verification
-    if (minuteHistory.length > 0) {
+    
+    // Show samples of minute-level data
+    if (minuteData.length > 0) {
       log(`First 3 minutes of data for ${token.outcome}:`);
-      console.table(minuteHistory.slice(0, 3));
-
-      if (minuteHistory.length > 3) {
+      console.table(minuteData.slice(0, 10));
+      
+      if (minuteData.length > 3) {
         log(`Last 3 minutes of data for ${token.outcome}:`);
-        console.table(minuteHistory.slice(-3));
+        console.table(minuteData.slice(-10));
       }
     }
   }
-
+  
   log("--- Processing complete ---");
-
-  // From this data, you can now:
-  // 1. Calculate the probability for each outcome
-  // 2. Track price movements over time
-  // 3. Identify significant trading events
-  // 4. Calculate total volume per day
+  
+  // Return data for further processing (e.g., visualization, analysis)
+  return tradeHistoryByToken;
 }
 
-main().catch((err) => {
+main().catch(err => {
   error("Unhandled error:", err);
   process.exit(1);
 });
