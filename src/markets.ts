@@ -217,7 +217,6 @@ async function main() {
       writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
       await upsertMarkets(allMarkets);
 
-      log(`Waiting 5 minutes before next sync...`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   } catch (err) {
