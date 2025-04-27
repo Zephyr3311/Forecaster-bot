@@ -7,7 +7,7 @@ import { db } from "./db";
 import { marketSchema, tokenSchema } from "./db/schema";
 import { getClobClient, getWallet } from "./utils/web3";
 
-dayjs.extend(utc); // Extend dayjs with UTC plugin
+dayjs.extend(utc);
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
 
@@ -20,17 +20,14 @@ interface TweetRange {
   question: string;
   min: number;
   max: number | null; // null means "or more"
-
-  startDate: string; // YYYY-MM-DD
-  endDate: string; // YYYY-MM-DD
-  endDateIso: Date | null; // ISO format
+  startDateIso: Date;
+  endDateIso: Date | null;
   tokens: (typeof tokenSchema.$inferSelect)[];
 }
 
 function parseTweetRange(
   question: string
 ): { min: number; max: number | null } | null {
-  // Handle en-dash (–) vs regular hyphen (-)
   const normalizedQuestion = question.replace(/–/g, "-");
 
   // Pattern for standard ranges (e.g., "150-174 times")
@@ -51,38 +48,29 @@ function parseTweetRange(
     return { min: parseInt(match[1], 10), max: null };
   }
 
-  // Pattern for specific narrow ranges (e.g., "100-109 times")
-  match = normalizedQuestion.match(/(\d+)\s*-\s*(\d+)\s+times/i);
-  if (match?.[1] && match[2]) {
-    return { min: parseInt(match[1], 10), max: parseInt(match[2], 10) };
-  }
-
   // Fallback pattern for any numbers followed by times
   match = normalizedQuestion.match(/(\d+)\s*-\s*(\d+).*?times/i);
   if (match?.[1] && match[2]) {
     return { min: parseInt(match[1], 10), max: parseInt(match[2], 10) };
   }
 
-  // Log failure to parse
   log(`Could not parse tweet range from question: "${question}"`);
   return null;
 }
 
 function getDatesFromMarket(
   market: Pick<typeof marketSchema.$inferSelect, "id" | "endDateIso">
-): { startDate: string; endDate: string } | null {
+): { startDateIso: Date } | null {
   try {
-    // Parse the end date from the ISO string
-    const endDate = dayjs(market.endDateIso);
-
-    // Assume markets are always 7 days - this is clear from all examples
-    const startDate = endDate.subtract(7, "day");
+    if (!market.endDateIso) {
+      log(`Missing end date for market: ${market.id}`);
+      return null;
+    }
 
     return {
-      startDate: startDate.format("YYYY-MM-DD"),
-      endDate: endDate.format("YYYY-MM-DD"),
+      startDateIso: dayjs(market.endDateIso).subtract(7, "day").toDate(),
     };
-  } catch (error) {
+  } catch (err) {
     log(`Failed to calculate dates for market: ${market.id}`);
     return null;
   }
@@ -104,7 +92,6 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
       )
     );
 
-  // Second query: Get tokens for these markets
   const marketIds = markets.map((market) => market.id);
   const tokens =
     marketIds.length > 0
@@ -114,7 +101,6 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
           .where(inArray(tokenSchema.marketId, marketIds))
       : [];
 
-  // Group tokens by marketId
   const tokensByMarket = tokens.reduce((acc, token) => {
     if (!acc[token.marketId]) acc[token.marketId] = [];
     acc[token.marketId]?.push(token);
@@ -124,16 +110,18 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
   const parsedMarkets: TweetRange[] = [];
 
   for (const market of markets) {
-    const range = parseTweetRange(market.question)!;
-    const dates = getDatesFromMarket(market)!;
+    const range = parseTweetRange(market.question);
+    if (!range) continue;
+
+    const dates = getDatesFromMarket(market);
+    if (!dates) continue;
 
     parsedMarkets.push({
       ...range,
       marketId: market.id,
       questionId: market.questionId,
       question: market.question,
-      startDate: dates.startDate,
-      endDate: dates.endDate,
+      startDateIso: dates.startDateIso,
       endDateIso: market.endDateIso,
       tokens: tokensByMarket[market.id] || [],
     });
@@ -145,11 +133,15 @@ async function findElonTweetMarkets(): Promise<TweetRange[]> {
 async function main() {
   const allMarkets = await findElonTweetMarkets();
 
-  const today = dayjs().subtract(21, "day").format("YYYY-MM-DD");
-  log(`Checking for markets active on ${today}`);
+  const today = dayjs().subtract(21, "day").toDate();
+  log(`Checking for markets active on ${dayjs(today).format("YYYY-MM-DD")}`);
 
   const activeMarkets = allMarkets
-    .filter((market) => today >= market.startDate && today <= market.endDate)
+    .filter(
+      (market) =>
+        today >= market.startDateIso &&
+        (market.endDateIso ? today <= market.endDateIso : true)
+    )
     .sort((a, b) => a.min - b.min);
 
   const groupedMarkets = activeMarkets.reduce((groups, market) => {
@@ -161,22 +153,29 @@ async function main() {
   const markets = Object.values(groupedMarkets)[0];
   const market = markets?.[0];
 
-  if (!market) return console.log("No active markets found.");
+  if (!market) return log("No active markets found.");
 
   const yesToken = market.tokens.find((token) =>
     token.outcome?.toLowerCase().includes("yes")
   );
 
+  if (!yesToken?.tokenId) return log("No YES token found for the market.");
+
   let allTrades: Trade[] = [];
   let next_cursor: string | undefined = INITIAL_CURSOR;
   let page = 1;
-  const startTs = dayjs(market.startDate).unix();
-  log(`Fetching trades page ${page}...`);
-  
+  const startTs = dayjs(market.startDateIso).unix();
+
+  log(
+    `Fetching trades for market "${market.question}" since ${dayjs(
+      market.startDateIso
+    ).format("YYYY-MM-DD")}`
+  );
+
   while (next_cursor && next_cursor !== END_CURSOR) {
     try {
       const tradeResponse = await clobClient.getTradesPaginated(
-        { asset_id: yesToken?.tokenId! },
+        { asset_id: yesToken.tokenId },
         next_cursor
       );
 
@@ -186,46 +185,42 @@ async function main() {
           `Fetched ${tradeResponse.trades.length} trades (Total: ${allTrades.length})`
         );
 
-        // Check if the oldest trade in the batch is already before our start date
         const oldestTradeTs = dayjs
           .utc(
             tradeResponse.trades[tradeResponse.trades.length - 1]?.match_time
           )
           .unix();
+
         if (oldestTradeTs < startTs) {
           log(
-            "Oldest trade in batch is before start date, stopping pagination for this token."
+            "Oldest trade in batch is before start date, stopping pagination"
           );
-          break; // No need to fetch older pages
+          break;
         }
       } else {
-        log("No more trades found in this page.");
+        log("No more trades found in this page");
       }
 
       next_cursor = tradeResponse.next_cursor;
       page++;
+
       if (next_cursor && next_cursor !== END_CURSOR) {
         log(`Fetching trades page ${page} (Cursor: ${atob(next_cursor)})...`);
       }
     } catch (err) {
       error(
-        `Error fetching trades for token ${yesToken?.tokenId} (Page ${page}):`,
+        `Error fetching trades for token ${yesToken.tokenId} (Page ${page}):`,
         err
       );
       next_cursor = undefined;
     }
   }
 
-  // for (const [basePattern, markets] of Object.entries(groupedMarkets)) {
-  //   log(`Group with base pattern ${basePattern}:`);
-  //   for (const market of markets) {
-  //     console.log(
-  //       `- ${market.question} min: ${market.min}, max: ${market.max}`,
-  //       market.questionId,
-  //       market.endDateIso
-  //     );
-  //   }
-  // }
+  log(`Finished fetching all trades for market "${market.question}"`);
+  // Process the trades here
 }
 
-main();
+main().catch((err) => {
+  error("Unhandled error:", err);
+  process.exit(1);
+});
