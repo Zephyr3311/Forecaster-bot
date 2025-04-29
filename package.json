@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@polymarket/clob-client": "^4.15.0",
-    "alchemy-sdk": "^3.5.7",
+    "alchemy-sdk": "^3.5.8",
     "cheerio": "^1.0.0",
     "dayjs": "^1.11.13",
     "dockerode": "^4.0.6",
