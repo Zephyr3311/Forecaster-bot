@@ -6,9 +6,9 @@ import { and, desc, eq, ilike } from "drizzle-orm";
 import { ethers, formatUnits } from "ethers";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
+import { USDC_DECIMALS } from "./polymarket/constants";
 import { getClobClient, getWallet } from "./utils/web3";
 
-const USDC_DECIMALS = 6;
 const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
 let currentModelOrg: string | null = null;
 
