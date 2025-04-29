@@ -1,4 +1,3 @@
-import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -211,8 +210,6 @@ async function fetchTradesBatch(
 
       hasMore = events.length === MAX_RESULTS;
       if (hasMore) skip += MAX_RESULTS;
-
-      await sleep(200);
     } catch (err) {
       error(`Error fetching trades:`, err);
       hasMore = false;
@@ -221,7 +218,6 @@ async function fetchTradesBatch(
 }
 
 async function saveTradesToDatabase(
-  marketId: number,
   tokenId: string,
   outcome: string,
   trades: Trade[]
@@ -234,18 +230,14 @@ async function saveTradesToDatabase(
   for (let i = 0; i < trades.length; i += BATCH_SIZE) {
     const batch = trades.slice(i, i + BATCH_SIZE);
     const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(trades.length / BATCH_SIZE);
-
-    log(`Saving batch ${batchNumber}/${totalBatches} (${batch.length} trades)`);
 
     try {
       await db.transaction(async (tx) => {
         await tx
           .insert(tradeHistorySchema)
           .values(
-            batch.map((trade) => ({
+            batch.map((trade): typeof tradeHistorySchema.$inferInsert => ({
               tokenId,
-              marketId,
               ts: trade.ts,
               time: new Date(trade.time),
               price: String(trade.price),
@@ -258,26 +250,22 @@ async function saveTradesToDatabase(
             target: [tradeHistorySchema.tokenId, tradeHistorySchema.ts],
           });
       });
-
-      log(`Completed batch ${batchNumber}/${totalBatches}`);
     } catch (err) {
       error(`Error saving batch ${batchNumber}:`, err);
     }
   }
-
-  log(`Completed saving all trades for ${outcome}`);
 }
 
 async function main() {
   const markets = await findElonTweetMarkets();
-  const now = dayjs().toDate();
-  const activeMarkets = markets
-    .filter(
-      (m) => now >= m.startDateIso && (!m.endDateIso || now <= m.endDateIso)
-    )
-    .sort((a, b) => a.min - b.min);
+  // const now = dayjs().toDate();
+  // const activeMarkets = markets
+  //   .filter(
+  //     (m) => now >= m.startDateIso && (!m.endDateIso || now <= m.endDateIso)
+  //   )
+  //   .sort((a, b) => a.min - b.min);
 
-  const groupedMarkets = activeMarkets.reduce((groups, market) => {
+  const groupedMarkets = markets.reduce((groups, market) => {
     const key = market.questionId.substring(0, 60);
     (groups[key] ??= []).push(market);
     return groups;
@@ -288,7 +276,9 @@ async function main() {
     for (const market of marketGroup) {
       log(`Processing market: "${market.question}"`);
 
-      for (const token of market.tokens) {
+      for (const token of market.tokens.filter((t) =>
+        t.outcome?.toLowerCase().includes("yes")
+      )) {
         if (!token.tokenId) continue;
 
         log(`--- Processing ${token.outcome} ---`);
@@ -311,7 +301,6 @@ async function main() {
 
         // Save the trades to the database
         await saveTradesToDatabase(
-          market.marketId,
           token.tokenId,
           token.outcome || "",
           trades

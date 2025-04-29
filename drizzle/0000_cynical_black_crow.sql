@@ -78,7 +78,6 @@ CREATE TABLE "token" (
 CREATE TABLE "trade_history" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"token_id" text NOT NULL,
-	"market_id" integer NOT NULL,
 	"timestamp" integer NOT NULL,
 	"time" timestamp NOT NULL,
 	"price" numeric(10, 6) NOT NULL,
@@ -92,7 +91,4 @@ ALTER TABLE "market_tag" ADD CONSTRAINT "market_tag_market_id_market_id_fk" FORE
 ALTER TABLE "reward_rate" ADD CONSTRAINT "reward_rate_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reward" ADD CONSTRAINT "reward_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "token" ADD CONSTRAINT "token_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "trade_history" ADD CONSTRAINT "trade_history_market_id_market_id_fk" FOREIGN KEY ("market_id") REFERENCES "public"."market"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "idx_trade_history_token_id" ON "trade_history" USING btree ("token_id");--> statement-breakpoint
-CREATE INDEX "idx_trade_history_timestamp" ON "trade_history" USING btree ("timestamp");--> statement-breakpoint
 CREATE UNIQUE INDEX "uniq_token_ts" ON "trade_history" USING btree ("token_id","timestamp");

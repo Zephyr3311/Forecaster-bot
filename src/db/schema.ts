@@ -1,7 +1,6 @@
 import {
   boolean,
   decimal,
-  index,
   integer,
   pgTable,
   primaryKey,
@@ -125,9 +124,6 @@ export const tradeHistorySchema = pgTable(
   {
     id: serial("id").primaryKey(),
     tokenId: text("token_id").notNull(),
-    marketId: integer("market_id")
-      .notNull()
-      .references(() => marketSchema.id, { onDelete: "cascade" }),
     ts: integer("timestamp").notNull(),
     time: timestamp("time").notNull(),
     price: decimal("price", { precision: 10, scale: 6 }).notNull(),
@@ -136,13 +132,5 @@ export const tradeHistorySchema = pgTable(
     outcome: text("outcome").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
   },
-  (table) => {
-    return {
-      // Add indexes for efficient queries
-      tokenIdIdx: index("idx_trade_history_token_id").on(table.tokenId),
-      timestampIdx: index("idx_trade_history_timestamp").on(table.ts),
-      // Unique constraint to prevent duplicates
-      uniqTokenTime: uniqueIndex("uniq_token_ts").on(table.tokenId, table.ts),
-    };
-  }
+  (table) => [uniqueIndex("uniq_token_ts").on(table.tokenId, table.ts)]
 );

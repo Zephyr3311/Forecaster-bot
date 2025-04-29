@@ -1,5 +1,5 @@
 {
-  "id": "909bd23b-0b8a-4929-802a-5eb00b63791c",
+  "id": "e639eeb6-f1bc-4515-bb7e-0577fdc2531d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -536,12 +536,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "market_id": {
-          "name": "market_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
         "timestamp": {
           "name": "timestamp",
           "type": "integer",
@@ -587,36 +581,6 @@
         }
       },
       "indexes": {
-        "idx_trade_history_token_id": {
-          "name": "idx_trade_history_token_id",
-          "columns": [
-            {
-              "expression": "token_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_trade_history_timestamp": {
-          "name": "idx_trade_history_timestamp",
-          "columns": [
-            {
-              "expression": "timestamp",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "uniq_token_ts": {
           "name": "uniq_token_ts",
           "columns": [
@@ -639,21 +603,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "trade_history_market_id_market_id_fk": {
-          "name": "trade_history_market_id_market_id_fk",
-          "tableFrom": "trade_history",
-          "tableTo": "market",
-          "columnsFrom": [
-            "market_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
