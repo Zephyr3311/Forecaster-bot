@@ -8,12 +8,13 @@ const wallet = getWallet(process.env.PK);
 /**
  * Approves the redemption contracts to handle tokens before attempting redemption
  */
-export async function approveTokenTransfers() {
+export async function approveTokenTransfers(): Promise<boolean> {
   try {
     log("Setting approvals for redemption contracts...");
 
     // CTF contract address
     const ctfAddress = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045";
+    const negRiskAdapter = "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296";
 
     // Get contract interface
     const ctfInterface = new Interface([
@@ -24,17 +25,16 @@ export async function approveTokenTransfers() {
     const approveTx: Deferrable<TransactionRequest> = {
       to: ctfAddress,
       data: ctfInterface.encodeFunctionData("setApprovalForAll", [
-        "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296", // NegRisk adapter
+        negRiskAdapter, // NegRisk adapter
         true, // Approved
       ]),
-      
+      // gasLimit: 200000,
     };
 
     const response = await wallet.sendTransaction(approveTx);
     log(`Approval transaction sent: ${response.hash}`);
 
-    // await response.wait();
-    log("✅ Successfully approved NegRisk adapter");
+    log("✅ Successfully submitted NegRisk adapter approval");
 
     return true;
   } catch (err) {
@@ -43,11 +43,16 @@ export async function approveTokenTransfers() {
   }
 }
 
-// Helper function to encode redemption function call
+/**
+ * Helper function to encode redemption function call
+ * @param conditionId The condition ID of the market to redeem
+ * @param isNegRisk Whether the market is a negative risk market
+ * @returns Encoded function data for the redemption call
+ */
 export function encodeRedeemFunction(
   conditionId: string,
   isNegRisk: boolean | null
-) {
+): string {
   if (isNegRisk) {
     // For NegRisk markets
     const negRiskInterface = new Interface([
