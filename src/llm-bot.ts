@@ -7,6 +7,7 @@ import { ethers, formatUnits } from "ethers";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDC_DECIMALS } from "./polymarket/constants";
+import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
 import { getClobClient, getWallet } from "./utils/web3";
 
 const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
@@ -297,5 +298,8 @@ async function runCycle() {
 await initializeCurrentPosition();
 while (true) {
   await runCycle();
+  // await approveTokenTransfers();
+  // console.log("Approvals set");
+  // await checkAndClaimResolvedMarkets();
   await sleep(100);
 }

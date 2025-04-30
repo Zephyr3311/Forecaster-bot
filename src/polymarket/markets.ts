@@ -1,5 +1,8 @@
+import { AssetType } from "@polymarket/clob-client";
 import { error, log } from "console";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
+import { formatUnits } from "ethers";
+import { writeFileSync } from "fs";
 import { db } from "../db";
 import {
   marketSchema,
@@ -10,7 +13,8 @@ import {
 } from "../db/schema";
 import type { Market } from "../types/markets";
 import { getClobClient, getWallet } from "../utils/web3";
-import { writeFileSync } from "fs";
+import { encodeRedeemFunction } from "./claim";
+import { USDC_DECIMALS } from "./constants";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
@@ -200,4 +204,94 @@ export async function syncMarkets() {
   const allMarkets = await getAllMarkets();
   writeFileSync("./markets.json", JSON.stringify(allMarkets, null, 2));
   await upsertMarkets(allMarkets);
+}
+
+/**
+ * Checks for resolved markets where you have positions and redeems winnings
+ */
+export async function checkAndClaimResolvedMarkets() {
+  try {
+    log("Checking for positions to redeem...");
+
+    // Get all your positions with non-zero balances
+    const trades = await clobClient.getTrades();
+    const assetIds = [
+      ...new Set(
+        trades
+          .map((t) =>
+            t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
+          )
+          .filter(Boolean)
+      ),
+    ] as string[];
+
+    for (const assetId of assetIds) {
+      // Check balance
+      const balance = await clobClient.getBalanceAllowance({
+        asset_type: AssetType.CONDITIONAL,
+        token_id: assetId,
+      });
+
+      if (BigInt(balance.balance) <= BigInt(1000)) continue;
+
+      // Find market info
+      const token = await db
+        .select()
+        .from(tokenSchema)
+        .where(eq(tokenSchema.tokenId, assetId))
+        .limit(1)
+        .then((results) => results[0]);
+
+      if (!token?.marketId) continue;
+
+      const market = await db
+        .select()
+        .from(marketSchema)
+        .where(eq(marketSchema.id, token.marketId))
+        .limit(1)
+        .then((results) => results[0]);
+      console.log(
+        `Found market for token ID ${assetId}: ${market?.question}`,
+        market?.negRisk
+      );
+      // Check if market is resolved
+      if (market?.closed) {
+        log(`Found resolved market with balance: ${market.question}`);
+        log(
+          `Position: ${token.outcome}, Balance: ${formatUnits(
+            balance.balance,
+            USDC_DECIMALS
+          )}`
+        );
+
+        if (!market.conditionId) {
+          log(`No condition ID for market ${market.question}, can't redeem`);
+          continue;
+        }
+
+        try {
+          // Create redemption transaction
+          const tx = {
+            to: market.negRisk
+              ? "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296" // NegRisk adapter
+              : "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", // CTF
+            value: "0",
+            data: encodeRedeemFunction(market.conditionId, market.negRisk),
+          };
+
+          // Send transaction
+          const response = await wallet.sendTransaction(tx);
+          log(`Redemption sent: ${response.hash}`);
+
+          // Wait for confirmation
+          await response.wait();
+          log(`✅ Successfully redeemed position for ${market.question}`);
+        } catch (err) {
+          error(`Failed to redeem for market ${market.question}:`, err);
+        }
+      }
+    }
+  } catch (err) {
+    error("Error checking for positions to redeem:", err);
+  }
 }
