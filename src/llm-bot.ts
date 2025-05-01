@@ -7,7 +7,7 @@ import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDCE_DIGITS } from "./polymarket/constants";
-import { approveNegRiskAdapter } from "./polymarket/redeem";
+
 import { getClobClient, getWallet } from "./utils/web3";
 
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
@@ -298,7 +298,7 @@ async function runCycle() {
 await initializeCurrentPosition();
 while (true) {
   // await runCycle();
-  await approveNegRiskAdapter();
+
   // console.log("Approvals set");
   // await checkAndClaimResolvedMarkets();
   await sleep(100000);
