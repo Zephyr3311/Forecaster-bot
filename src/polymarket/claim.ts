@@ -1,47 +1,7 @@
-import { type TransactionRequest } from "@ethersproject/abstract-provider";
-import { type Deferrable } from "@ethersproject/properties";
-import { error, log } from "console";
 import { Interface, ZeroHash } from "ethers";
 import { getWallet } from "../utils/web3";
+
 const wallet = getWallet(process.env.PK);
-
-/**
- * Approves the redemption contracts to handle tokens before attempting redemption
- */
-export async function approveTokenTransfers(): Promise<boolean> {
-  try {
-    log("Setting approvals for redemption contracts...");
-
-    // CTF contract address
-    const ctfAddress = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045";
-    const negRiskAdapter = "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296";
-
-    // Get contract interface
-    const ctfInterface = new Interface([
-      "function setApprovalForAll(address operator, bool approved)",
-    ]);
-
-    // Approve NegRisk adapter
-    const approveTx: Deferrable<TransactionRequest> = {
-      to: ctfAddress,
-      data: ctfInterface.encodeFunctionData("setApprovalForAll", [
-        negRiskAdapter, // NegRisk adapter
-        true, // Approved
-      ]),
-      // gasLimit: 200000,
-    };
-
-    const response = await wallet.sendTransaction(approveTx);
-    log(`Approval transaction sent: ${response.hash}`);
-
-    log("✅ Successfully submitted NegRisk adapter approval");
-
-    return true;
-  } catch (err) {
-    error("Error setting approvals:", err);
-    return false;
-  }
-}
 
 /**
  * Helper function to encode redemption function call

@@ -9,7 +9,7 @@ const creds: ApiKeyCreds = {
   passphrase: process.env.CLOB_PASS_PHRASE,
 };
 
-const alchemyProvider = await new Alchemy({
+export const alchemyProvider = await new Alchemy({
   apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.MATIC_MAINNET,
 }).config.getProvider();
