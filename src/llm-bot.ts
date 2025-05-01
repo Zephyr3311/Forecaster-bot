@@ -299,7 +299,6 @@ await initializeCurrentPosition();
 while (true) {
   // await runCycle();
 
-  // console.log("Approvals set");
   await checkAndClaimResolvedMarkets();
   await sleep(100000);
 }

@@ -1,14 +1,14 @@
 import "@dotenvx/dotenvx/config";
 import { ethers } from "ethers";
-import { safeAbi } from "../safeWallet/abis/safeAbi";
-import { encodeRedeem, encodeRedeemNegRisk } from "../safeWallet/encode";
-import { signAndExecuteSafeTransaction } from "../safeWallet/safe-helpers";
 import { type SafeTransaction, OperationType } from "../types";
 import {
   CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS,
   NEG_RISK_ADAPTER_ADDRESS,
   USDC_ADDRESS,
 } from "./constants";
+import { safeAbi } from "./safeWallet/abis/safeAbi";
+import { encodeRedeem, encodeRedeemNegRisk } from "./safeWallet/encode";
+import { signAndExecuteSafeTransaction } from "./safeWallet/safe-helpers";
 
 export async function redeem(
   conditionId: string,

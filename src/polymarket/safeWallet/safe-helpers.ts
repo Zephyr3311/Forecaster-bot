@@ -1,8 +1,8 @@
 import { type TransactionResponse } from "@ethersproject/abstract-provider";
 import { BigNumber, Contract, ethers, Wallet } from "ethers";
 import { Interface } from "ethers/lib/utils";
-import { SAFE_MULTISEND_ADDRESS } from "../polymarket/constants";
-import { OperationType, type SafeTransaction } from "../types";
+import { type SafeTransaction, OperationType } from "../../types";
+import { SAFE_MULTISEND_ADDRESS } from "../constants";
 import { multisendAbi } from "./abis/multisendAbi";
 
 const SAFE_MULTISEND_INTERFACE = new Interface(multisendAbi);
