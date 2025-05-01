@@ -1,4 +1,4 @@
-import "@dotenvx/dotenvx/config";
+import { log } from "console";
 import { ethers } from "ethers";
 import { type SafeTransaction, OperationType } from "../types";
 import {
@@ -14,76 +14,135 @@ import {
 } from "./safeWallet/encode";
 import { signAndExecuteSafeTransaction } from "./safeWallet/safe-helpers";
 
-export async function approveRedeem() {
-  console.log(`Starting ERC1155 approval...`);
-
+async function getWalletAndSafe() {
   const provider = new ethers.providers.JsonRpcProvider(
     `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
   );
-  const pk = new ethers.Wallet(process.env.PK);
-  const wallet = pk.connect(provider); // This is your EOA signer
-
-  console.log(`Using EOA Signer Address: ${wallet.address}`);
-
-  // === Values to Set ===
-  // 1. Set the Safe Address (the contract holding the funds/shares)
-  const safeAddress = process.env.POLYMARKET_FUNDER_ADDRESS; // Get Safe address from env
-  console.log(`Targeting Safe Address: ${safeAddress}`);
-
-  // 2. Set the Spender Address (the contract that needs approval)
-  const spender = NEG_RISK_ADAPTER_ADDRESS; // The Neg Risk Adapter needs approval
-  console.log(`Approving Spender: ${spender}`);
-
-  // 3. Create the Safe Contract instance
+  const wallet = new ethers.Wallet(process.env.PK).connect(provider);
+  const safeAddress = process.env.POLYMARKET_FUNDER_ADDRESS;
   const safe = new ethers.Contract(safeAddress, safeAbi, wallet);
 
-  // === Construct the Safe Transaction ===
-  // Approves the 'spender' for ERC1155 tokens managed by the CTF contract
+  return { wallet, safe, safeAddress, provider };
+}
+
+export async function verifyEOANonce() {
+  log("Starting EOA nonce verification...");
+
+  const { wallet, provider } = await getWalletAndSafe();
+
+  log(`Using EOA Signer Address: ${wallet.address}`);
+
+  try {
+    // --- Get the Current Nonce the Network Expects ---
+    // "pending" includes transactions in the mempool, "latest" is only confirmed blocks.
+    // For sending the *next* transaction, "latest" confirmed count is what we need.
+    const currentNonce = await provider.getTransactionCount(
+      wallet.address,
+      "latest" // Get count of *confirmed* transactions
+    );
+    log(
+      `Current CONFIRMED transaction count (Next Required Nonce): ${currentNonce}`
+    );
+
+    // --- Prepare a Simple Self-Transfer Transaction ---
+    const amountToSend = ethers.utils.parseUnits("0.001", "ether"); // Tiny amount of MATIC
+    log(
+      `Preparing to send ${ethers.utils.formatEther(
+        amountToSend
+      )} MATIC to self...`
+    );
+
+    // --- Get Recommended Gas Fees ---
+    const feeData = await provider.getFeeData();
+    log(`Current Fee Data: 
+      Gas Price: ${ethers.utils.formatUnits(feeData.gasPrice || 0, "gwei")} Gwei
+      Max Fee Per Gas: ${ethers.utils.formatUnits(
+        feeData.maxFeePerGas || 0,
+        "gwei"
+      )} Gwei
+      Max Priority Fee Per Gas: ${ethers.utils.formatUnits(
+        feeData.maxPriorityFeePerGas || 0,
+        "gwei"
+      )} Gwei`);
+
+    // Use slightly higher than estimated priority fee for better chance of inclusion
+    const priorityFee = feeData.maxPriorityFeePerGas
+      ? feeData.maxPriorityFeePerGas.add(ethers.utils.parseUnits("2", "gwei")) // Add 2 Gwei buffer
+      : ethers.utils.parseUnits("30", "gwei"); // Fallback if estimation fails
+
+    const maxFee = feeData.maxFeePerGas
+      ? feeData.maxFeePerGas
+      : ethers.utils.parseUnits("150", "gwei"); // Fallback max fee
+
+    const tx = {
+      to: wallet.address, // Sending to self
+      value: amountToSend,
+      nonce: currentNonce, // Use the fetched nonce
+      gasLimit: 21000, // Standard limit for basic MATIC transfer
+      maxPriorityFeePerGas: priorityFee,
+      maxFeePerGas: maxFee,
+      type: 2, // EIP-1559 transaction type
+      chainId: (await provider.getNetwork()).chainId,
+    };
+
+    log("Transaction details prepared:", tx);
+
+    // --- Send the Transaction ---
+    log("Sending transaction...");
+    const txResponse = await wallet.sendTransaction(tx);
+    log(`Transaction submitted. Hash: ${txResponse.hash}`);
+    log("Waiting for confirmation...");
+
+    const receipt = await txResponse.wait(1); // Wait for 1 confirmation
+    log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
+
+    // --- Verify New Nonce ---
+    const newNonce = await provider.getTransactionCount(
+      wallet.address,
+      "latest"
+    );
+    log(`NEW Confirmed transaction count (Next Required Nonce): ${newNonce}`);
+
+    if (newNonce === currentNonce + 1) {
+      log("✅ Nonce incremented correctly. EOA queue seems clear.");
+    } else {
+      log(
+        `❌ Nonce mismatch! Expected: ${currentNonce + 1}, Actual: ${newNonce}`
+      );
+      log(
+        `This could indicate pending transactions or nonce issues. Please investigate further.`
+      );
+    }
+  } catch (err) {}
+}
+
+export async function approveRedeem() {
+  console.log(`Starting ERC1155 approval...`);
+
+  const { wallet, safe, safeAddress } = await getWalletAndSafe();
+  console.log(`Using EOA: ${wallet.address}, Safe: ${safeAddress}`);
+
+  const spender = NEG_RISK_ADAPTER_ADDRESS;
   const safeTxn: SafeTransaction = {
-    // The Safe needs to call the CTF contract to set the approval
     to: CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS,
-    operation: OperationType.Call, // Standard contract call
-    // Encodes the 'setApprovalForAll(address spender, bool approved)' function call
-    data: encodeErc1155Approve(spender, true), // Granting approval (true)
-    value: "0", // No MATIC value transferred
+    operation: OperationType.Call,
+    data: encodeErc1155Approve(spender, true),
+    value: "0",
   };
 
-  console.log(`Preparing Safe transaction:`);
-  console.log(`  to: ${safeTxn.to} (CTF Contract)`);
-  console.log(`  operation: ${safeTxn.operation}`);
-  console.log(`  data: ${safeTxn.data}`);
-  console.log(`  value: ${safeTxn.value}`);
-  const competitiveGasPrice = ethers.utils.parseUnits("50", "gwei"); // Example: 50 Gwei
+  const gasPrice = ethers.utils.parseUnits("50", "gwei");
   try {
-    // Sign and execute the transaction via the Safe
-    // REMOVE the hardcoded gasPrice - let ethers estimate
-    console.log("Signing and executing transaction via Safe...");
-    const txn = await signAndExecuteSafeTransaction(
-      wallet, // EOA signer
-      safe, // Safe contract instance
-      safeTxn, // The transaction details for the Safe to execute
-      {
-        // nonce: 5,
-        // Use maxFeePerGas and maxPriorityFeePerGas for EIP-1559
-        maxFeePerGas: competitiveGasPrice,
-        maxPriorityFeePerGas: competitiveGasPrice, // Can often be slightly lower, but matching is safe
-      }
-    );
+    const txn = await signAndExecuteSafeTransaction(wallet, safe, safeTxn, {
+      maxFeePerGas: gasPrice,
+      maxPriorityFeePerGas: gasPrice,
+    });
 
-    console.log(`Transaction submitted. Hash: ${txn.hash}`);
-    console.log("Waiting for transaction confirmation...");
-
-    await txn.wait(); // Wait for the transaction to be mined
-
-    console.log(`✅ Approval transaction confirmed!`);
-    console.log(
-      `Safe ${safeAddress} has approved ${spender} for ERC1155 management.`
-    );
+    console.log(`Transaction hash: ${txn.hash}`);
+    await txn.wait();
+    console.log(`✅ Approval confirmed for spender: ${spender}`);
   } catch (error) {
-    console.error("❌ Error executing approval transaction:", error);
+    console.error("❌ Error:", error);
   }
-
-  console.log(`Done!`);
 }
 
 export async function redeem(
@@ -92,51 +151,31 @@ export async function redeem(
   redeemAmounts: [string, string]
 ) {
   await approveRedeem();
-  
-  console.log(`Starting...`, conditionId, negRisk, redeemAmounts);
+  console.log(`Redeeming:`, conditionId, negRisk, redeemAmounts);
 
-  const provider = new ethers.providers.JsonRpcProvider(
-    `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-  );
-  const pk = new ethers.Wallet(`${process.env.PK}`);
-  const wallet = pk.connect(provider);
+  const { wallet, safe } = await getWalletAndSafe();
 
-  console.log(`Address: ${wallet.address}`);
-
-  const safe = new ethers.Contract(
-    process.env.POLYMARKET_FUNDER_ADDRESS,
-    safeAbi,
-    wallet
-  );
-
-  // For negative risk positions, MUST USE the negRiskAdapter
-  // The key fix here is ensuring the right contract address and encoding method are used
+  const to = negRisk
+    ? NEG_RISK_ADAPTER_ADDRESS
+    : CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS;
   const data = negRisk
     ? encodeRedeemNegRisk(conditionId, redeemAmounts)
     : encodeRedeem(USDC_ADDRESS, conditionId);
 
-  const to = negRisk
-    ? NEG_RISK_ADAPTER_ADDRESS // Make sure this is the correct negRiskAdapter address
-    : CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS;
-
   console.log(`Using contract: ${to}`);
-  console.log(`Using encoded function data: ${data}`);
 
   const safeTxn: SafeTransaction = {
-    to: to,
-    data: data,
+    to,
+    data,
     operation: OperationType.Call,
     value: "0",
   };
 
   const txn = await signAndExecuteSafeTransaction(wallet, safe, safeTxn, {
     nonce: 6,
-    gasPrice: 300000000000, // Using 300 Gwei to ensure transaction goes through
-    gasLimit: 1000000, // Higher gas limit to handle complex contract interactions
   });
 
   await txn.wait();
-
   console.log(`Done!`);
   return txn;
 }
