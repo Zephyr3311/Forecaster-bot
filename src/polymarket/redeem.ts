@@ -15,7 +15,7 @@ export async function redeem(
   negRisk: boolean | null,
   redeemAmounts: [string, string]
 ) {
-  console.log(`Starting...`);
+  console.log(`Starting...`, conditionId, negRisk, redeemAmounts);
 
   const provider = new ethers.providers.JsonRpcProvider(
     `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
