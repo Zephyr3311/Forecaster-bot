@@ -1,6 +1,24 @@
+export const PROXY_WALLET_FACTORY_ADDRESS =
+  "0xaB45c5A4B0c941a2F231C04C3f49182e1A254052";
+
+export const SAFE_FACTORY_ADDRESS =
+  "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b";
+
+export const SAFE_MULTISEND_ADDRESS =
+  "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761";
+
+export const USDC_ADDRESS = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
+
+export const CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS =
+  "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045";
+
+export const NEG_RISK_ADAPTER_ADDRESS =
+  "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296";
+
 export const SUBGRAPH_URL =
   "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/orderbook-subgraph/prod/gn";
+
 export const USDC_ID = "0";
-export const USDC_DECIMALS = 6;
+export const USDCE_DIGITS = 6;
 export const MAX_RESULTS = 1000;
 export const BATCH_SIZE = 100;

@@ -1,7 +1,7 @@
 import { AssetType } from "@polymarket/clob-client";
 import { error, log } from "console";
 import { eq, inArray } from "drizzle-orm";
-import { formatUnits } from "ethers";
+import { formatUnits } from "ethers/lib/utils";
 import { writeFileSync } from "fs";
 import { db } from "../db";
 import {
@@ -13,8 +13,8 @@ import {
 } from "../db/schema";
 import type { Market } from "../types/markets";
 import { getClobClient, getWallet } from "../utils/web3";
-import { encodeRedeemFunction } from "./claim";
-import { USDC_DECIMALS } from "./constants";
+import { USDCE_DIGITS } from "./constants";
+import { redeem } from "./redeem";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
@@ -260,7 +260,7 @@ export async function checkAndClaimResolvedMarkets() {
         log(
           `Position: ${token.outcome}, Balance: ${formatUnits(
             balance.balance,
-            USDC_DECIMALS
+            USDCE_DIGITS
           )}`
         );
 
@@ -271,20 +271,11 @@ export async function checkAndClaimResolvedMarkets() {
 
         try {
           // Create redemption transaction
-          const tx = {
-            to: market.negRisk
-              ? "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296" // NegRisk adapter
-              : "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", // CTF
-            value: "0",
-            data: encodeRedeemFunction(market.conditionId, market.negRisk),
-          };
-
-          // Send transaction
-          const response = await wallet.sendTransaction(tx);
-          log(`Redemption sent: ${response.hash}`);
-
-          // Wait for confirmation
-          await response.wait();
+          const tx = await redeem(market.conditionId, market.negRisk, [
+            token.outcome === "YES" ? balance.balance : "0",
+            token.outcome === "NO" ? balance.balance : "0",
+          ]);
+          log(`Transaction hash: ${tx.hash}`);
           log(`✅ Successfully redeemed position for ${market.question}`);
         } catch (err) {
           error(`Failed to redeem for market ${market.question}:`, err);

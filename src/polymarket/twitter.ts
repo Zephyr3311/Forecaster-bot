@@ -2,17 +2,17 @@ import { error, log } from "console";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { and, eq, ilike, inArray } from "drizzle-orm";
-import { formatUnits } from "ethers";
 import { db } from "../db";
 import { marketSchema, tokenSchema, tradeHistorySchema } from "../db/schema";
 import {
   BATCH_SIZE,
   MAX_RESULTS,
   SUBGRAPH_URL,
-  USDC_DECIMALS,
+  USDCE_DIGITS,
   USDC_ID,
 } from "./constants";
 import { syncMarkets } from "./markets";
+import { formatUnits } from "ethers/lib/utils";
 
 dayjs.extend(utc);
 // Types
@@ -196,8 +196,8 @@ export async function fetchTradesBatch(
 
         const price = parseFloat(
           formatUnits(
-            (quoteAmount * 10n ** BigInt(USDC_DECIMALS)) / baseAmount,
-            USDC_DECIMALS
+            (quoteAmount * 10n ** BigInt(USDCE_DIGITS)) / baseAmount,
+            USDCE_DIGITS
           )
         );
 
@@ -205,8 +205,8 @@ export async function fetchTradesBatch(
           ts,
           time: dayjs.unix(ts).utc().toISOString(),
           price,
-          volume: parseFloat(formatUnits(quoteAmount, USDC_DECIMALS)),
-          size: parseFloat(formatUnits(baseAmount, USDC_DECIMALS)),
+          volume: parseFloat(formatUnits(quoteAmount, USDCE_DIGITS)),
+          size: parseFloat(formatUnits(baseAmount, USDCE_DIGITS)),
         });
       }
 

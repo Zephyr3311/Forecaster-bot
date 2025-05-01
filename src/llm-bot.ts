@@ -3,14 +3,14 @@ import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import { and, desc, eq, ilike } from "drizzle-orm";
-import { ethers, formatUnits } from "ethers";
+import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
-import { USDC_DECIMALS } from "./polymarket/constants";
-import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
+import { USDCE_DIGITS } from "./polymarket/constants";
+import { approveNegRiskAdapter } from "./polymarket/redeem";
 import { getClobClient, getWallet } from "./utils/web3";
 
-const MINIMUM_BALANCE = ethers.parseUnits("1", USDC_DECIMALS);
+const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
 let currentModelOrg: string | null = null;
 
 const wallet = getWallet(process.env.PK);
@@ -42,7 +42,7 @@ async function initializeCurrentPosition() {
         log(
           `Found position with token ID ${assetId}, balance: ${formatUnits(
             balance.balance,
-            USDC_DECIMALS
+            USDCE_DIGITS
           )}`
         );
         if (BigInt(balance.balance) > highestBalance) {
@@ -53,7 +53,7 @@ async function initializeCurrentPosition() {
         log(
           `Ignoring dust balance for token ID ${assetId}, balance: ${formatUnits(
             balance.balance,
-            USDC_DECIMALS
+            USDCE_DIGITS
           )}`
         );
       }
@@ -93,7 +93,7 @@ async function initializeCurrentPosition() {
       log(
         `✅ Initialized current position: ${
           slugMatch[1]
-        } (Balance: ${formatUnits(highestBalance.toString(), USDC_DECIMALS)})`
+        } (Balance: ${formatUnits(highestBalance.toString(), USDCE_DIGITS)})`
       );
     } else {
       log(
@@ -139,7 +139,7 @@ async function sellAllPositions(topModelTokenId: string | null = null) {
 
     if (BigInt(balance.balance) > MINIMUM_BALANCE) {
       try {
-        const formattedBalance = formatUnits(balance.balance, USDC_DECIMALS);
+        const formattedBalance = formatUnits(balance.balance, USDCE_DIGITS);
         log(`Selling position ${assetId}, amount: ${formattedBalance}`);
 
         const sellOrder = await clobClient.createMarketOrder({
@@ -157,7 +157,7 @@ async function sellAllPositions(topModelTokenId: string | null = null) {
       log(
         `Skipping dust position ${assetId}, amount: ${formatUnits(
           balance.balance,
-          USDC_DECIMALS
+          USDCE_DIGITS
         )}`
       );
     }
@@ -185,12 +185,12 @@ async function buyPosition(
         log(
           `Buying ${organization}, amount: ${formatUnits(
             collateral.balance,
-            USDC_DECIMALS
+            USDCE_DIGITS
           )} (attempt ${attempt}/${retries})`
         );
         const buyOrder = await clobClient.createMarketOrder({
           tokenID: tokenId,
-          amount: parseFloat(formatUnits(collateral.balance, USDC_DECIMALS)),
+          amount: parseFloat(formatUnits(collateral.balance, USDCE_DIGITS)),
           side: Side.BUY,
         });
         await clobClient.postOrder(buyOrder, OrderType.FOK);
@@ -298,8 +298,8 @@ async function runCycle() {
 await initializeCurrentPosition();
 while (true) {
   // await runCycle();
-
+  await approveNegRiskAdapter();
   // console.log("Approvals set");
-  await checkAndClaimResolvedMarkets();
+  // await checkAndClaimResolvedMarkets();
   await sleep(100000);
 }

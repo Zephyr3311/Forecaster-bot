@@ -23,13 +23,14 @@
     "gen": "bun --bun run src/utils/generate-key.ts"
   },
   "dependencies": {
+    "@ethersproject/abstract-provider": "^5.8.0",
     "@polymarket/clob-client": "^4.15.0",
     "alchemy-sdk": "^3.5.8",
     "cheerio": "^1.0.0",
     "dayjs": "^1.11.13",
     "dockerode": "^4.0.6",
     "drizzle-orm": "^0.43.1",
-    "ethers": "^6.13.7",
+    "ethers": "^5.8.0",
     "puppeteer-real-browser": "^1.4.2"
   },
   "devDependencies": {
