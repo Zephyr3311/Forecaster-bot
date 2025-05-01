@@ -254,6 +254,7 @@ export async function checkAndClaimResolvedMarkets() {
         `Found market for token ID ${assetId}: ${market?.question}`,
         market?.negRisk
       );
+
       // Check if market is resolved
       if (market?.closed) {
         log(`Found resolved market with balance: ${market.question}`);
@@ -275,7 +276,7 @@ export async function checkAndClaimResolvedMarkets() {
             token.outcome?.toLowerCase() === "yes" ? balance.balance : "0",
             token.outcome?.toLowerCase() === "no" ? balance.balance : "0",
           ]);
-          log(`Transaction hash: ${tx.hash}`);
+          log(`Transaction hash: ${tx?.hash}`);
           log(`✅ Successfully redeemed position for ${market.question}`);
         } catch (err) {
           error(`Failed to redeem for market ${market.question}:`, err);
