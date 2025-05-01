@@ -297,9 +297,9 @@ async function runCycle() {
 
 await initializeCurrentPosition();
 while (true) {
-  await runCycle();
+  // await runCycle();
 
   // console.log("Approvals set");
-  // await checkAndClaimResolvedMarkets();
-  await sleep(100);
+  await checkAndClaimResolvedMarkets();
+  await sleep(100000);
 }
