@@ -7,7 +7,7 @@ import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDCE_DIGITS } from "./polymarket/constants";
-
+import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
 import { getClobClient, getWallet } from "./utils/web3";
 
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
@@ -300,6 +300,6 @@ while (true) {
   // await runCycle();
 
   // console.log("Approvals set");
-  // await checkAndClaimResolvedMarkets();
+  await checkAndClaimResolvedMarkets();
   await sleep(100000);
 }
