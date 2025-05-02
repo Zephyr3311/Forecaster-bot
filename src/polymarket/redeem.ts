@@ -1,6 +1,6 @@
-import { log } from "console";
+import type { FeeData } from "@ethersproject/abstract-provider";
 import { ethers } from "ethers";
-import { type SafeTransaction, OperationType } from "../types";
+import { type SafeTransaction, CallType, OperationType } from "../types";
 import {
   CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS,
   NEG_RISK_ADAPTER_ADDRESS,
@@ -25,95 +25,60 @@ async function getWalletAndSafe() {
   return { wallet, safe, safeAddress, provider };
 }
 
+function calculateFeesWithBuffer(feeData: FeeData) {
+  // Apply 50% buffer to current gas prices
+  const baseFee =
+    feeData.lastBaseFeePerGas || ethers.utils.parseUnits("25", "gwei");
+  const priorityFee =
+    feeData.maxPriorityFeePerGas || ethers.utils.parseUnits("30", "gwei");
+
+  console.log(baseFee.toString(), priorityFee.toString());
+
+  // Calculate with 50% buffer
+  const bufferedPriorityFee = priorityFee.mul(150).div(100);
+  const bufferedMaxFee = baseFee.add(bufferedPriorityFee);
+
+  return {
+    maxPriorityFeePerGas: bufferedPriorityFee,
+    maxFeePerGas: bufferedMaxFee,
+  };
+}
+
 export async function verifyEOANonce() {
-  log("Starting EOA nonce verification...");
-
+  console.log("Starting EOA nonce verification...");
   const { wallet, provider } = await getWalletAndSafe();
-
-  log(`Using EOA Signer Address: ${wallet.address}`);
+  console.log(`Using EOA: ${wallet.address}`);
 
   try {
-    // --- Get the Current Nonce the Network Expects ---
-    // "pending" includes transactions in the mempool, "latest" is only confirmed blocks.
-    // For sending the *next* transaction, "latest" confirmed count is what we need.
     const currentNonce = await provider.getTransactionCount(
-      wallet.address,
-      "latest" // Get count of *confirmed* transactions
-    );
-    log(
-      `Current CONFIRMED transaction count (Next Required Nonce): ${currentNonce}`
-    );
-
-    // --- Prepare a Simple Self-Transfer Transaction ---
-    const amountToSend = ethers.utils.parseUnits("0.001", "ether"); // Tiny amount of MATIC
-    log(
-      `Preparing to send ${ethers.utils.formatEther(
-        amountToSend
-      )} MATIC to self...`
-    );
-
-    // --- Get Recommended Gas Fees ---
-    const feeData = await provider.getFeeData();
-    log(`Current Fee Data: 
-      Gas Price: ${ethers.utils.formatUnits(feeData.gasPrice || 0, "gwei")} Gwei
-      Max Fee Per Gas: ${ethers.utils.formatUnits(
-        feeData.maxFeePerGas || 0,
-        "gwei"
-      )} Gwei
-      Max Priority Fee Per Gas: ${ethers.utils.formatUnits(
-        feeData.maxPriorityFeePerGas || 0,
-        "gwei"
-      )} Gwei`);
-
-    // Use slightly higher than estimated priority fee for better chance of inclusion
-    const priorityFee = feeData.maxPriorityFeePerGas
-      ? feeData.maxPriorityFeePerGas.add(ethers.utils.parseUnits("2", "gwei")) // Add 2 Gwei buffer
-      : ethers.utils.parseUnits("30", "gwei"); // Fallback if estimation fails
-
-    const maxFee = feeData.maxFeePerGas
-      ? feeData.maxFeePerGas
-      : ethers.utils.parseUnits("150", "gwei"); // Fallback max fee
-
-    const tx = {
-      to: wallet.address, // Sending to self
-      value: amountToSend,
-      nonce: currentNonce, // Use the fetched nonce
-      gasLimit: 21000, // Standard limit for basic MATIC transfer
-      maxPriorityFeePerGas: priorityFee,
-      maxFeePerGas: maxFee,
-      type: 2, // EIP-1559 transaction type
-      chainId: (await provider.getNetwork()).chainId,
-    };
-
-    log("Transaction details prepared:", tx);
-
-    // --- Send the Transaction ---
-    log("Sending transaction...");
-    const txResponse = await wallet.sendTransaction(tx);
-    log(`Transaction submitted. Hash: ${txResponse.hash}`);
-    log("Waiting for confirmation...");
-
-    const receipt = await txResponse.wait(1); // Wait for 1 confirmation
-    log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
-
-    // --- Verify New Nonce ---
-    const newNonce = await provider.getTransactionCount(
       wallet.address,
       "latest"
     );
-    log(`NEW Confirmed transaction count (Next Required Nonce): ${newNonce}`);
+    console.log(`Current nonce: ${currentNonce}`);
 
-    if (newNonce === currentNonce + 1) {
-      log("✅ Nonce incremented correctly. EOA queue seems clear.");
-    } else {
-      log(
-        `❌ Nonce mismatch! Expected: ${currentNonce + 1}, Actual: ${newNonce}`
-      );
-      log(
-        `This could indicate pending transactions or nonce issues. Please investigate further.`
-      );
-    }
-  } catch (err) {}
+    const amountToSend = ethers.utils.parseUnits("0.001", "ether");
+    const feeData = await provider.getFeeData();
+    const fees = calculateFeesWithBuffer(feeData);
+
+    const tx = {
+      to: wallet.address,
+      value: amountToSend,
+      nonce: currentNonce,
+      gasLimit: 21000,
+      maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+      maxFeePerGas: fees.maxFeePerGas,
+      type: Number(CallType.DelegateCall),
+      chainId: (await provider.getNetwork()).chainId,
+    };
+
+    const txResponse = await wallet.sendTransaction(tx);
+    console.log(`Tx sent: ${txResponse.hash}`);
+
+    const receipt = await txResponse.wait();
+    console.log(`Confirmed in block: ${receipt.blockNumber}`);
+  } catch (err) {
+    console.error("Error:", err);
+  }
 }
 
 export async function approveRedeem() {
