@@ -22,11 +22,10 @@ async function getWalletAndSafe() {
   const safeAddress = process.env.POLYMARKET_FUNDER_ADDRESS;
   const safe = new ethers.Contract(safeAddress, safeAbi, wallet);
 
-  const currentNonce = await provider.getTransactionCount(
-    wallet.address,
-    "latest"
-  );
-  const gasPrice = await provider.getGasPrice();
+  const [currentNonce, gasPrice] = await Promise.all([
+    provider.getTransactionCount(wallet.address, "latest"),
+    provider.getGasPrice(),
+  ]);
 
   return { wallet, safe, safeAddress, provider, currentNonce, gasPrice };
 }
@@ -50,15 +49,14 @@ export async function verifyEOANonce() {
 
     const txResponse = await wallet.sendTransaction(tx);
     const receipt = await txResponse.wait();
-    log(`Tx confirmed: ${receipt.transactionHash}`);
+    log(`✅ Transaction confirmed: ${receipt.transactionHash}`);
   } catch (err) {
-    error("Error:", err);
+    error("❌ Error sending transaction:", err);
   }
 }
 
 export async function approveRedeem() {
-  const { wallet, safe, safeAddress, provider } = await getWalletAndSafe();
-  console.log(`Using EOA: ${wallet.address}, Safe: ${safeAddress}`);
+  const { wallet, safe, currentNonce, gasPrice } = await getWalletAndSafe();
 
   const safeTxn: SafeTransaction = {
     to: CONDITIONAL_TOKENS_FRAMEWORK_ADDRESS,
@@ -68,8 +66,8 @@ export async function approveRedeem() {
   };
 
   try {
-    const gasPrice = await provider.getGasPrice();
     const txn = await signAndExecuteSafeTransaction(wallet, safe, safeTxn, {
+      nonce: currentNonce,
       maxFeePerGas: gasPrice,
       maxPriorityFeePerGas: gasPrice,
     });
@@ -77,7 +75,7 @@ export async function approveRedeem() {
     await txn.wait();
     log(`✅ Approval confirmed for spender: ${NEG_RISK_ADAPTER_ADDRESS}`);
   } catch (err) {
-    error("❌ Error:", err);
+    error("❌ Approval Error:", err);
   }
 }
 
@@ -88,7 +86,7 @@ export async function redeem(
 ) {
   await approveRedeem();
 
-  const { wallet, safe } = await getWalletAndSafe();
+  const { wallet, safe, currentNonce, gasPrice } = await getWalletAndSafe();
 
   const to = negRisk
     ? NEG_RISK_ADAPTER_ADDRESS
@@ -104,7 +102,11 @@ export async function redeem(
     value: "0",
   };
 
-  const txn = await signAndExecuteSafeTransaction(wallet, safe, safeTxn);
+  const txn = await signAndExecuteSafeTransaction(wallet, safe, safeTxn, {
+    nonce: currentNonce,
+    maxFeePerGas: gasPrice,
+    maxPriorityFeePerGas: gasPrice,
+  });
 
   await txn.wait();
   log(`✅ Redeem confirmed for condition ID: ${conditionId}`);
