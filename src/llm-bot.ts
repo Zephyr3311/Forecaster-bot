@@ -8,29 +8,14 @@ import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDCE_DIGITS } from "./polymarket/constants";
 import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
+import { extractAssetIdsFromTrades } from "./utils";
 import { getClobClient, getWallet } from "./utils/web3";
-
-// Import Trade type from CLOB client
-import type { Trade } from "@polymarket/clob-client";
 
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
 let currentModelOrg: string | null = null;
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
-
-// Utility function to extract asset IDs from trades
-function extractAssetIdsFromTrades(trades: Trade[]): string[] {
-  return [
-    ...new Set(
-      trades
-        .map((t) =>
-          t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
-        )
-        .filter(Boolean)
-    ),
-  ] as string[];
-}
 
 async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
   try {
@@ -212,7 +197,6 @@ async function buyPosition(
 
 async function runCycle(assetIds: string[]): Promise<void> {
   try {
-    // Use passed trades instead of fetching new ones
     await initializeCurrentPosition(assetIds);
 
     const topModel = await db
