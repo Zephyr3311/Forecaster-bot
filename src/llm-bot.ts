@@ -10,25 +10,30 @@ import { USDCE_DIGITS } from "./polymarket/constants";
 import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
 import { getClobClient, getWallet } from "./utils/web3";
 
+// Import Trade type from CLOB client
+import type { Trade } from "@polymarket/clob-client";
+
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
 let currentModelOrg: string | null = null;
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
 
-async function initializeCurrentPosition() {
-  try {
-    const trades = await clobClient.getTrades();
-    const assetIds = [
-      ...new Set(
-        trades
-          .map((t) =>
-            t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
-          )
-          .filter(Boolean)
-      ),
-    ] as string[];
+// Utility function to extract asset IDs from trades
+function extractAssetIdsFromTrades(trades: Trade[]): string[] {
+  return [
+    ...new Set(
+      trades
+        .map((t) =>
+          t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
+        )
+        .filter(Boolean)
+    ),
+  ] as string[];
+}
 
+async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
+  try {
     let currentAssetId = null;
     let highestBalance = BigInt(0);
 
@@ -107,21 +112,13 @@ async function initializeCurrentPosition() {
   }
 }
 
-async function sellAllPositions(topModelTokenId: string | null = null) {
+async function sellAllPositions(
+  assetIds: string[],
+  topModelTokenId: string | null = null
+): Promise<void> {
   await clobClient.cancelAll();
 
   log("Starting to sell positions...");
-
-  const trades = await clobClient.getTrades();
-  const assetIds = [
-    ...new Set(
-      trades
-        .map((t) =>
-          t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
-        )
-        .filter(Boolean)
-    ),
-  ] as string[];
 
   let anySold = false;
 
@@ -174,7 +171,7 @@ async function buyPosition(
   tokenId: string,
   organization: string,
   retries = 30
-) {
+): Promise<boolean> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     const collateral = await clobClient.getBalanceAllowance({
       asset_type: AssetType.COLLATERAL,
@@ -213,10 +210,10 @@ async function buyPosition(
   return false;
 }
 
-async function runCycle() {
+async function runCycle(assetIds: string[]): Promise<void> {
   try {
-    // Re-check our position at the start of each cycle
-    await initializeCurrentPosition();
+    // Use passed trades instead of fetching new ones
+    await initializeCurrentPosition(assetIds);
 
     const topModel = await db
       .select()
@@ -275,7 +272,7 @@ async function runCycle() {
       return;
     }
 
-    await sellAllPositions(yesToken.tokenId);
+    await sellAllPositions(assetIds, yesToken.tokenId);
 
     // Check if we already have this position
     const currentBalance = await clobClient.getBalanceAllowance({
@@ -295,10 +292,22 @@ async function runCycle() {
   }
 }
 
-await initializeCurrentPosition();
-while (true) {
-  await runCycle();
-  await checkAndClaimResolvedMarkets();
-  // await verifyEOANonce();
-  // await sleep(100);
+// Main function
+async function main(): Promise<void> {
+  let trades = await clobClient.getTrades();
+  let assetIds = extractAssetIdsFromTrades(trades);
+  await initializeCurrentPosition(assetIds);
+
+  while (true) {
+    await runCycle(assetIds);
+    await checkAndClaimResolvedMarkets(trades);
+
+    trades = await clobClient.getTrades();
+    assetIds = extractAssetIdsFromTrades(trades);
+  }
 }
+
+main().catch((err) => {
+  error("Unhandled error:", err);
+  process.exit(1);
+});

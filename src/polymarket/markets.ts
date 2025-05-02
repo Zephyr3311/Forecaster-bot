@@ -1,4 +1,4 @@
-import { AssetType } from "@polymarket/clob-client";
+import { AssetType, type Trade } from "@polymarket/clob-client";
 import { error, log } from "console";
 import { eq, inArray } from "drizzle-orm";
 import { formatUnits } from "ethers/lib/utils";
@@ -15,6 +15,7 @@ import type { Market } from "../types/markets";
 import { getClobClient, getWallet } from "../utils/web3";
 import { USDCE_DIGITS } from "./constants";
 import { redeem } from "./redeem";
+import { extractAssetIdsFromTrades } from "../utils";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
@@ -209,20 +210,13 @@ export async function syncMarkets() {
 /**
  * Checks for resolved markets where you have positions and redeems winnings
  */
-export async function checkAndClaimResolvedMarkets() {
+export async function checkAndClaimResolvedMarkets(
+  trades: Trade[]
+): Promise<void> {
   try {
     log("Checking for positions to redeem...");
 
-    const trades = await clobClient.getTrades();
-    const assetIds = [
-      ...new Set(
-        trades
-          .map((t) =>
-            t.trader_side === "TAKER" ? t.asset_id : t.maker_orders[0]?.asset_id
-          )
-          .filter(Boolean)
-      ),
-    ] as string[];
+    const assetIds = extractAssetIdsFromTrades(trades);
 
     for (const assetId of assetIds) {
       // Check balance
