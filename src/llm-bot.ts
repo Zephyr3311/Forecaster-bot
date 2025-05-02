@@ -7,8 +7,8 @@ import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDCE_DIGITS } from "./polymarket/constants";
-import { verifyEOANonce } from "./polymarket/redeem";
 import { getClobClient, getWallet } from "./utils/web3";
+import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
 
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
 let currentModelOrg: string | null = null;
@@ -299,7 +299,7 @@ await initializeCurrentPosition();
 while (true) {
   // await runCycle();
 
-  // await checkAndClaimResolvedMarkets();
-  await verifyEOANonce();
-  await sleep(100000);
+  await checkAndClaimResolvedMarkets();
+  // await verifyEOANonce();
+  await sleep(100);
 }

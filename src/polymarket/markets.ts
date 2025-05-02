@@ -213,7 +213,6 @@ export async function checkAndClaimResolvedMarkets() {
   try {
     log("Checking for positions to redeem...");
 
-    // Get all your positions with non-zero balances
     const trades = await clobClient.getTrades();
     const assetIds = [
       ...new Set(
@@ -250,15 +249,11 @@ export async function checkAndClaimResolvedMarkets() {
         .where(eq(marketSchema.id, token.marketId))
         .limit(1)
         .then((results) => results[0]);
-      console.log(
-        `Found market for token ID ${assetId}: ${market?.question}`,
-        market?.negRisk
-      );
 
       // Check if market is resolved
       if (market?.closed) {
-        log(`Found resolved market with balance: ${market.question}`);
         log(
+          `Found resolved market with balance: ${market.question}`,
           `Position: ${token.outcome}, Balance: ${formatUnits(
             balance.balance,
             USDCE_DIGITS
@@ -276,7 +271,6 @@ export async function checkAndClaimResolvedMarkets() {
             token.outcome?.toLowerCase() === "yes" ? balance.balance : "0",
             token.outcome?.toLowerCase() === "no" ? balance.balance : "0",
           ]);
-          log(`Transaction hash: ${tx?.hash}`);
           log(`✅ Successfully redeemed position for ${market.question}`);
         } catch (err) {
           error(`Failed to redeem for market ${market.question}:`, err);
