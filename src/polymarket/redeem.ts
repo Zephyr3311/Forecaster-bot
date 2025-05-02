@@ -40,7 +40,6 @@ export async function verifyEOANonce() {
       to: wallet.address,
       value: amountToSend,
       nonce: currentNonce,
-      gasLimit: 21000,
       maxPriorityFeePerGas: gasPrice,
       maxFeePerGas: gasPrice,
       type: Number(CallType.DelegateCall),
