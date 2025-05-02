@@ -292,9 +292,10 @@ async function main(): Promise<void> {
   await initializeCurrentPosition(assetIds);
 
   while (true) {
-    await runCycle(assetIds);
     // Make sure to run the checkAndClaimResolvedMarkets function
     await checkAndClaimResolvedMarkets(assetIds);
+
+    await runCycle(assetIds);
 
     // Clear cached balances at the end of each cycle to ensure fresh data
     portfolioState.clearBalances();
