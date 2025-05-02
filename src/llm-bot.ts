@@ -161,19 +161,19 @@ async function buyPosition(
       await portfolioState.fetchCollateralBalance();
     }
 
-    const collateralBalance = portfolioState.collateralBalance;
-
-    if (BigInt(collateralBalance) > 0) {
+    if (BigInt(portfolioState.collateralBalance) > 0) {
       try {
         log(
           `Buying ${organization}, amount: ${formatUnits(
-            collateralBalance,
+            portfolioState.collateralBalance,
             USDCE_DIGITS
           )} (attempt ${attempt}/${retries})`
         );
         const buyOrder = await portfolioState.clobClient.createMarketOrder({
           tokenID: tokenId,
-          amount: parseFloat(formatUnits(collateralBalance, USDCE_DIGITS)),
+          amount: parseFloat(
+            formatUnits(portfolioState.collateralBalance, USDCE_DIGITS)
+          ),
           side: Side.BUY,
         });
         await portfolioState.clobClient.postOrder(buyOrder, OrderType.FOK);
