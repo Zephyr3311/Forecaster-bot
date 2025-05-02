@@ -1,4 +1,5 @@
-import { AssetType, OrderType, Side } from "@polymarket/clob-client";
+// src/llm-bot.ts
+import { OrderType, Side } from "@polymarket/clob-client";
 import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
@@ -9,13 +10,10 @@ import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDCE_DIGITS } from "./polymarket/constants";
 import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
 import { extractAssetIdsFromTrades } from "./utils";
-import { getClobClient, getWallet } from "./utils/web3";
+import { portfolioState } from "./utils/portofolio-state";
 
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
-let currentModelOrg: string | null = null;
-
-const wallet = getWallet(process.env.PK);
-const clobClient = getClobClient(wallet);
+const clobClient = portfolioState.clobClient;
 
 async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
   try {
@@ -23,26 +21,24 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
     let highestBalance = BigInt(0);
 
     for (const assetId of assetIds) {
-      const balance = await clobClient.getBalanceAllowance({
-        asset_type: AssetType.CONDITIONAL,
-        token_id: assetId,
-      });
+      const balance = await portfolioState.fetchAssetBalanceIfNeeded(assetId);
+      const balanceAmount = BigInt(balance);
 
-      if (BigInt(balance.balance) > MINIMUM_BALANCE) {
+      if (balanceAmount > MINIMUM_BALANCE) {
         log(
           `Found position with token ID ${assetId}, balance: ${formatUnits(
-            balance.balance,
+            balance,
             USDCE_DIGITS
           )}`
         );
-        if (BigInt(balance.balance) > highestBalance) {
-          highestBalance = BigInt(balance.balance);
+        if (balanceAmount > highestBalance) {
+          highestBalance = balanceAmount;
           currentAssetId = assetId;
         }
-      } else if (BigInt(balance.balance) > 0) {
+      } else if (balanceAmount > 0) {
         log(
           `Ignoring dust balance for token ID ${assetId}, balance: ${formatUnits(
-            balance.balance,
+            balance,
             USDCE_DIGITS
           )}`
         );
@@ -51,7 +47,7 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
 
     if (!currentAssetId) {
       log(`No active positions found above minimum threshold`);
-      currentModelOrg = null;
+      portfolioState.currentModelOrg = null;
       return;
     }
 
@@ -64,7 +60,7 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
 
     if (!token?.marketId) {
       log(`Could not find market for token ID ${currentAssetId}`);
-      currentModelOrg = null;
+      portfolioState.currentModelOrg = null;
       return;
     }
 
@@ -79,7 +75,7 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
       /will-([^-]+)-have-the-top-ai-model/
     );
     if (slugMatch && slugMatch[1]) {
-      currentModelOrg = slugMatch[1].toLowerCase();
+      portfolioState.currentModelOrg = slugMatch[1].toLowerCase();
       log(
         `✅ Initialized current position: ${
           slugMatch[1]
@@ -89,7 +85,7 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
       log(
         `⚠️ Could not extract company from market slug: ${market?.marketSlug}`
       );
-      currentModelOrg = null;
+      portfolioState.currentModelOrg = null;
     }
   } catch (err) {
     error("Error initializing position:", err);
@@ -114,14 +110,12 @@ async function sellAllPositions(
       continue;
     }
 
-    const balance = await clobClient.getBalanceAllowance({
-      asset_type: AssetType.CONDITIONAL,
-      token_id: assetId,
-    });
+    const balance = await portfolioState.fetchAssetBalanceIfNeeded(assetId);
+    const balanceAmount = BigInt(balance);
 
-    if (BigInt(balance.balance) > MINIMUM_BALANCE) {
+    if (balanceAmount > MINIMUM_BALANCE) {
       try {
-        const formattedBalance = formatUnits(balance.balance, USDCE_DIGITS);
+        const formattedBalance = formatUnits(balance, USDCE_DIGITS);
         log(`Selling position ${assetId}, amount: ${formattedBalance}`);
 
         const sellOrder = await clobClient.createMarketOrder({
@@ -132,13 +126,16 @@ async function sellAllPositions(
 
         await clobClient.postOrder(sellOrder, OrderType.FOK);
         anySold = true;
+
+        // Clear the cached balance after selling
+        portfolioState.updateAssetBalance(assetId, "0");
       } catch (err) {
         error(`Error selling ${assetId}:`, err);
       }
-    } else if (BigInt(balance.balance) > 0) {
+    } else if (balanceAmount > 0) {
       log(
         `Skipping dust position ${assetId}, amount: ${formatUnits(
-          balance.balance,
+          balance,
           USDCE_DIGITS
         )}`
       );
@@ -149,6 +146,12 @@ async function sellAllPositions(
   if (anySold) {
     log("Waiting for balances to update after selling...");
     await sleep(3000); // Wait 3 seconds for balance to update
+
+    // Clear all cached balances after sells to force refresh
+    portfolioState.clearBalances();
+
+    // Update collateral balance after selling
+    await portfolioState.fetchCollateralBalance();
   }
 }
 
@@ -158,25 +161,35 @@ async function buyPosition(
   retries = 30
 ): Promise<boolean> {
   for (let attempt = 1; attempt <= retries; attempt++) {
-    const collateral = await clobClient.getBalanceAllowance({
-      asset_type: AssetType.COLLATERAL,
-    });
+    // Use cached collateral balance or fetch if needed
+    if (attempt > 1 || portfolioState.collateralBalance === "0") {
+      await portfolioState.fetchCollateralBalance();
+    }
 
-    if (BigInt(collateral.balance) > 0) {
+    const collateralBalance = portfolioState.collateralBalance;
+
+    if (BigInt(collateralBalance) > 0) {
       try {
         log(
           `Buying ${organization}, amount: ${formatUnits(
-            collateral.balance,
+            collateralBalance,
             USDCE_DIGITS
           )} (attempt ${attempt}/${retries})`
         );
         const buyOrder = await clobClient.createMarketOrder({
           tokenID: tokenId,
-          amount: parseFloat(formatUnits(collateral.balance, USDCE_DIGITS)),
+          amount: parseFloat(formatUnits(collateralBalance, USDCE_DIGITS)),
           side: Side.BUY,
         });
         await clobClient.postOrder(buyOrder, OrderType.FOK);
-        currentModelOrg = organization;
+        portfolioState.currentModelOrg = organization;
+
+        // Update balances after purchase
+        portfolioState.updateCollateralBalance("0");
+
+        // Mark that we need to fetch the new token balance
+        portfolioState.updateAssetBalance(tokenId, "refresh_needed");
+
         log(`Successfully bought ${organization}`);
         return true;
       } catch (err) {
@@ -210,8 +223,10 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
     const topModelOrg = topModel.organization.toLowerCase();
 
-    log(`Current: ${currentModelOrg}, Top model: ${topModelOrg}`);
-    if (currentModelOrg === topModelOrg) {
+    log(
+      `Current: ${portfolioState.currentModelOrg}, Top model: ${topModelOrg}`
+    );
+    if (portfolioState.currentModelOrg === topModelOrg) {
       log(
         `No change in top model: ${topModel.modelName} (${topModel.organization})`
       );
@@ -258,18 +273,17 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
     await sellAllPositions(assetIds, yesToken.tokenId);
 
-    // Check if we already have this position
-    const currentBalance = await clobClient.getBalanceAllowance({
-      asset_type: AssetType.CONDITIONAL,
-      token_id: yesToken.tokenId,
-    });
+    // Check if we already have this position using cached data
+    const currentBalance = await portfolioState.fetchAssetBalanceIfNeeded(
+      yesToken.tokenId
+    );
 
     // Only buy if we don't already have a significant position
-    if (BigInt(currentBalance.balance) <= MINIMUM_BALANCE) {
+    if (BigInt(currentBalance) <= MINIMUM_BALANCE) {
       await buyPosition(yesToken.tokenId, topModelOrg);
     } else {
       log(`Already holding ${topModelOrg} position, no need to buy`);
-      currentModelOrg = topModelOrg;
+      portfolioState.currentModelOrg = topModelOrg;
     }
   } catch (err) {
     error("Error in bot cycle:", err);
@@ -284,7 +298,11 @@ async function main(): Promise<void> {
 
   while (true) {
     await runCycle(assetIds);
-    await checkAndClaimResolvedMarkets(trades);
+    // Make sure to run the checkAndClaimResolvedMarkets function
+    await checkAndClaimResolvedMarkets(assetIds);
+
+    // Clear cached balances at the end of each cycle to ensure fresh data
+    portfolioState.clearBalances();
 
     trades = await clobClient.getTrades();
     assetIds = extractAssetIdsFromTrades(trades);

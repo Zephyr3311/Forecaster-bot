@@ -1,4 +1,3 @@
-import { AssetType, type Trade } from "@polymarket/clob-client";
 import { error, log } from "console";
 import { eq, inArray } from "drizzle-orm";
 import { formatUnits } from "ethers/lib/utils";
@@ -12,10 +11,10 @@ import {
   tokenSchema,
 } from "../db/schema";
 import type { Market } from "../types/markets";
+import { portfolioState } from "../utils/portofolio-state";
 import { getClobClient, getWallet } from "../utils/web3";
 import { USDCE_DIGITS } from "./constants";
 import { redeem } from "./redeem";
-import { extractAssetIdsFromTrades } from "../utils";
 
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
@@ -210,22 +209,19 @@ export async function syncMarkets() {
 /**
  * Checks for resolved markets where you have positions and redeems winnings
  */
+
 export async function checkAndClaimResolvedMarkets(
-  trades: Trade[]
+  assetIds: string[]
 ): Promise<void> {
   try {
     log("Checking for positions to redeem...");
 
-    const assetIds = extractAssetIdsFromTrades(trades);
-
     for (const assetId of assetIds) {
-      // Check balance
-      const balance = await clobClient.getBalanceAllowance({
-        asset_type: AssetType.CONDITIONAL,
-        token_id: assetId,
-      });
+      // Check balance using portfolio state
+      const balance = await portfolioState.fetchAssetBalanceIfNeeded(assetId);
+      const balanceAmount = BigInt(balance);
 
-      if (BigInt(balance.balance) <= BigInt(1000)) continue;
+      if (balanceAmount <= BigInt(1000)) continue;
 
       // Find market info
       const token = await db
@@ -249,7 +245,7 @@ export async function checkAndClaimResolvedMarkets(
         log(
           `Found resolved market with balance: ${market.question}`,
           `Position: ${token.outcome}, Balance: ${formatUnits(
-            balance.balance,
+            balance,
             USDCE_DIGITS
           )}`
         );
@@ -262,9 +258,13 @@ export async function checkAndClaimResolvedMarkets(
         try {
           // Create redemption transaction
           const tx = await redeem(market.conditionId, market.negRisk, [
-            token.outcome?.toLowerCase() === "yes" ? balance.balance : "0",
-            token.outcome?.toLowerCase() === "no" ? balance.balance : "0",
+            token.outcome?.toLowerCase() === "yes" ? balance : "0",
+            token.outcome?.toLowerCase() === "no" ? balance : "0",
           ]);
+
+          // Update the portfolio state after redeeming
+          portfolioState.updateAssetBalance(assetId, "0");
+
           log(`✅ Successfully redeemed position for ${market.question}`);
         } catch (err) {
           error(`Failed to redeem for market ${market.question}:`, err);
