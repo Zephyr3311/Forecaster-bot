@@ -1,11 +1,10 @@
+import type { Wallet } from "@ethersproject/wallet";
 import { AssetType, type ClobClient } from "@polymarket/clob-client";
 import { log } from "console";
 import { formatUnits } from "ethers/lib/utils";
 import { USDCE_DIGITS } from "../polymarket/constants";
 import { getClobClient, getWallet } from "./web3";
 
-import type { Wallet } from "@ethersproject/wallet";
-// Portfolio state for managing balances and positions
 export class PortfolioState {
   clobClient: ClobClient;
   wallet: Wallet;

@@ -11,7 +11,7 @@ import {
   tokenSchema,
 } from "../db/schema";
 import type { Market } from "../types/markets";
-import { portfolioState } from "../utils/portofolio-state";
+import { portfolioState } from "../utils/portfolio-state";
 import { getClobClient, getWallet } from "../utils/web3";
 import { USDCE_DIGITS } from "./constants";
 import { redeem } from "./redeem";

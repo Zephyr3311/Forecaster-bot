@@ -1,4 +1,3 @@
-// src/llm-bot.ts
 import { OrderType, Side } from "@polymarket/clob-client";
 import { sleep } from "bun";
 import { error, log } from "console";
@@ -10,10 +9,9 @@ import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
 import { USDCE_DIGITS } from "./polymarket/constants";
 import { checkAndClaimResolvedMarkets } from "./polymarket/markets";
 import { extractAssetIdsFromTrades } from "./utils";
-import { portfolioState } from "./utils/portofolio-state";
+import { portfolioState } from "./utils/portfolio-state";
 
 const MINIMUM_BALANCE = BigInt(parseUnits("1", USDCE_DIGITS).toString());
-const clobClient = portfolioState.clobClient;
 
 async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
   try {
@@ -97,7 +95,7 @@ async function sellAllPositions(
   assetIds: string[],
   topModelTokenId: string | null = null
 ): Promise<void> {
-  await clobClient.cancelAll();
+  await portfolioState.clobClient.cancelAll();
 
   log("Starting to sell positions...");
 
@@ -118,13 +116,13 @@ async function sellAllPositions(
         const formattedBalance = formatUnits(balance, USDCE_DIGITS);
         log(`Selling position ${assetId}, amount: ${formattedBalance}`);
 
-        const sellOrder = await clobClient.createMarketOrder({
+        const sellOrder = await portfolioState.clobClient.createMarketOrder({
           tokenID: assetId,
           amount: parseFloat(formattedBalance),
           side: Side.SELL,
         });
 
-        await clobClient.postOrder(sellOrder, OrderType.FOK);
+        await portfolioState.clobClient.postOrder(sellOrder, OrderType.FOK);
         anySold = true;
 
         // Clear the cached balance after selling
@@ -147,10 +145,7 @@ async function sellAllPositions(
     log("Waiting for balances to update after selling...");
     await sleep(3000); // Wait 3 seconds for balance to update
 
-    // Clear all cached balances after sells to force refresh
     portfolioState.clearBalances();
-
-    // Update collateral balance after selling
     await portfolioState.fetchCollateralBalance();
   }
 }
@@ -176,12 +171,12 @@ async function buyPosition(
             USDCE_DIGITS
           )} (attempt ${attempt}/${retries})`
         );
-        const buyOrder = await clobClient.createMarketOrder({
+        const buyOrder = await portfolioState.clobClient.createMarketOrder({
           tokenID: tokenId,
           amount: parseFloat(formatUnits(collateralBalance, USDCE_DIGITS)),
           side: Side.BUY,
         });
-        await clobClient.postOrder(buyOrder, OrderType.FOK);
+        await portfolioState.clobClient.postOrder(buyOrder, OrderType.FOK);
         portfolioState.currentModelOrg = organization;
 
         // Update balances after purchase
@@ -292,7 +287,7 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
 // Main function
 async function main(): Promise<void> {
-  let trades = await clobClient.getTrades();
+  let trades = await portfolioState.clobClient.getTrades();
   let assetIds = extractAssetIdsFromTrades(trades);
   await initializeCurrentPosition(assetIds);
 
@@ -304,7 +299,7 @@ async function main(): Promise<void> {
     // Clear cached balances at the end of each cycle to ensure fresh data
     portfolioState.clearBalances();
 
-    trades = await clobClient.getTrades();
+    trades = await portfolioState.clobClient.getTrades();
     assetIds = extractAssetIdsFromTrades(trades);
   }
 }
