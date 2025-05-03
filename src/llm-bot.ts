@@ -118,7 +118,7 @@ async function sellAllPositions(
         await portfolioState.clobClient.postOrder(sellOrder, OrderType.FOK);
         anySold = true;
 
-        // Clear the cached balance after selling
+        // Update the cached balance after selling
         portfolioState.updateAssetBalance(assetId, "0");
       } catch (err) {
         error(`Error selling ${assetId}:`, err);
@@ -138,8 +138,8 @@ async function sellAllPositions(
     log("Waiting for balances to update after selling...");
     await sleep(3000); // Wait 3 seconds for balance to update
 
-    portfolioState.clearBalances();
-    await portfolioState.fetchCollateralBalance();
+    // Only refresh collateral instead of clearing everything
+    portfolioState.updateCollateralBalance("0");
   }
 }
 
@@ -273,6 +273,9 @@ async function runCycle(assetIds: string[]): Promise<void> {
       log(`Already holding ${topModelOrg} position, no need to buy`);
       portfolioState.currentModelOrg = topModelOrg;
     }
+
+    // Only update collateral balance instead of clearing all caches
+    portfolioState.updateCollateralBalance("0");
   } catch (err) {
     error("Error in bot cycle:", err);
   }
@@ -290,13 +293,11 @@ async function main(): Promise<void> {
 
     await runCycle(assetIds);
 
-    // Clear cached balances at the end of each cycle to ensure fresh data
-    portfolioState.clearBalances();
-
+    // Get fresh trades but don't clear cached balances
     trades = await portfolioState.clobClient.getTrades();
     assetIds = extractAssetIdsFromTrades(trades);
 
-    await sleep(1000); // Wait for 1 second before the next cycle
+    await sleep(100); // Wait for 1 second before the next cycle
   }
 }
 

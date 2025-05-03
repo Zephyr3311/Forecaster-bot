@@ -262,8 +262,11 @@ export async function checkAndClaimResolvedMarkets(
             token.outcome?.toLowerCase() === "no" ? balance : "0",
           ]);
 
-          // Update the portfolio state after redeeming
+          // Update the cached balance after redeeming
           portfolioState.updateAssetBalance(assetId, "0");
+
+          // Force refresh of collateral balance since we received funds
+          portfolioState.updateCollateralBalance("0");
 
           log(`✅ Successfully redeemed position for ${market.question}`);
         } catch (err) {
