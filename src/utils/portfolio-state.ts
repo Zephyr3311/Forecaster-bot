@@ -31,18 +31,23 @@ export class PortfolioState {
 
   // Method to fetch and cache balance if not already present
   async fetchAssetBalanceIfNeeded(assetId: string): Promise<string> {
-    if (!this.assetBalances.has(assetId)) {
+    // Fetch if not in cache or marked for refresh
+    if (
+      !this.assetBalances.has(assetId) ||
+      this.assetBalances.get(assetId) === "refresh_needed"
+    ) {
       const balance = await this.clobClient.getBalanceAllowance({
         asset_type: AssetType.CONDITIONAL,
         token_id: assetId,
       });
+
       this.assetBalances.set(assetId, balance.balance);
+
       log(
         `Fetched balance for ${assetId}: ${formatUnits(
           balance.balance,
           USDCE_DIGITS
-        )}`,
-        balance.balance
+        )}`
       );
     }
 
