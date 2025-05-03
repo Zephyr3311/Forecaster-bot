@@ -295,6 +295,8 @@ async function main(): Promise<void> {
 
     trades = await portfolioState.clobClient.getTrades();
     assetIds = extractAssetIdsFromTrades(trades);
+
+    await sleep(100); // Wait for 1 second before the next cycle
   }
 }
 
