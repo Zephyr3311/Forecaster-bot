@@ -33,13 +33,6 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
           highestBalance = balanceAmount;
           currentAssetId = assetId;
         }
-      } else if (balanceAmount > 0) {
-        log(
-          `Ignoring dust balance for token ID ${assetId}, balance: ${formatUnits(
-            balance,
-            USDCE_DIGITS
-          )}`
-        );
       }
     }
 

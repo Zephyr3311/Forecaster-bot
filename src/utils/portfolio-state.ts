@@ -41,7 +41,8 @@ export class PortfolioState {
         `Fetched balance for ${assetId}: ${formatUnits(
           balance.balance,
           USDCE_DIGITS
-        )}`
+        )}`,
+        balance.balance
       );
     }
 
