@@ -1,15 +1,26 @@
 # polybot
 
-To install dependencies:as
+Bun is required to run this project. You can install it from [here](https://bun.sh/).
+Alchemy RPC Token is required to run this project, you can aquire it [here](https://www.alchemy.com/).
 
 ```bash
 bun install
 ```
 
-To run:
+prepare the environment variables copy `.env.example` to `.env` and fill in the values.
+this generates a new keypair
 
 ```bash
-bun run index.ts
+bun run src/utils/generate-key.ts
 ```
 
-This project was created using `bun init` in bun v1.2.8. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+To reset / setup the database
+
+```bash
+bun drizzle
+```
+
+to seed the database
+```bash
+bun markets
+```
