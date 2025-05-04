@@ -2,6 +2,7 @@ import { error, log } from "console";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { and, eq, ilike, inArray } from "drizzle-orm";
+import { formatUnits } from "ethers/lib/utils";
 import { db } from "../db";
 import { marketSchema, tokenSchema, tradeHistorySchema } from "../db/schema";
 import {
@@ -12,7 +13,6 @@ import {
   USDC_ID,
 } from "./constants";
 import { syncMarkets } from "./markets";
-import { formatUnits } from "ethers/lib/utils";
 
 dayjs.extend(utc);
 // Types
@@ -72,7 +72,7 @@ export async function findElonTweetMarkets(): Promise<TweetRange[]> {
 
   if (!markets.length) {
     await syncMarkets();
-    return findElonTweetMarkets();
+    return await findElonTweetMarkets();
   }
 
   const marketIds = markets.map((m) => m.id);
