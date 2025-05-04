@@ -9,7 +9,8 @@ bun install
 ```
 
 prepare the environment variables copy `.env.example` to `.env` and fill in the values.
-this generates a new keypair
+
+this generates a new keypair for `.env`
 
 ```bash
 bun run src/utils/generate-key.ts
