@@ -1,6 +1,7 @@
 # polybot
 
 Bun is required to run this project. You can install it from [here](https://bun.sh/).
+
 Alchemy RPC Token is required to run this project, you can aquire it [here](https://www.alchemy.com/).
 
 ```bash
