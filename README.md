@@ -10,7 +10,7 @@ bun install
 
 prepare the environment variables copy `.env.example` to `.env` and fill in the values.
 
-this generates a new keypair for `.env` OR export Metamask/Phantom keypair to `.env` file
+Use Metamask/Phantom to export the private key and connect with polymarket to get their internal wallet. use POLYMARKET_FUNDER_ADDRESS from the polymaket wallet you connected with from their website.
 
 ```bash
 bun run src/utils/generate-key.ts
