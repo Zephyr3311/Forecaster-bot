@@ -10,7 +10,7 @@ bun install
 
 prepare the environment variables copy `.env.example` to `.env` and fill in the values.
 
-this generates a new keypair for `.env`
+this generates a new keypair for `.env` OR export Metamask/Phantom keypair to `.env` file
 
 ```bash
 bun run src/utils/generate-key.ts
