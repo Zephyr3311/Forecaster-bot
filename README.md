@@ -10,7 +10,7 @@ bun install
 
 prepare the environment variables copy `.env.example` to `.env` and fill in the values.
 
-use Metamask/Phantom to export the private key and set `PK`, connect your wallet with polymarket to get their internal wallet, use polymarket address to set `POLYMARKET_FUNDER_ADDRESS`
+use [Phantom](https://phantom.app/)/[MetaMask](https://metamask.io/) to export the private key and set `PK`, connect your wallet with polymarket to get their internal wallet, use polymarket address to set `POLYMARKET_FUNDER_ADDRESS`
 when both are set generate api keys with `generate-key.ts` script
 
 ```bash
