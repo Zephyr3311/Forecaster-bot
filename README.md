@@ -2,7 +2,7 @@
 
 Bun is required to run this project. You can install it from [here](https://bun.sh/).
 
-Alchemy RPC Token is required to run this project, you can aquire it [here](https://www.alchemy.com/).
+Alchemy RPC Token is required to run this project, you can aquire it [here](https://www.alchemy.com/). (search for "Account Kit Quickstart" and go to "Networks" tab to enable Polygon network)
 
 ```bash
 bun install
@@ -23,6 +23,7 @@ bun drizzle
 ```
 
 to seed the database
+
 ```bash
 bun markets
 ```
