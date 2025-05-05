@@ -17,7 +17,7 @@ when both are set generate api keys with `generate-key.ts` script
 bun run src/utils/generate-key.ts
 ```
 
-To reset / setup the database
+To setup / reset the database
 
 ```bash
 bun drizzle
