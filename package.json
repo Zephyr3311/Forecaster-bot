@@ -38,7 +38,7 @@
     "@types/bun": "latest",
     "@types/dockerode": "latest",
     "@types/node": "latest",
-    "drizzle-kit": "^0.31.0",
+    "drizzle-kit": "^0.31.1",
     "postgres": "^3.4.5"
   },
   "peerDependencies": {
