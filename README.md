@@ -1,4 +1,4 @@
-# polybot
+# polybot!
 
 Bun is required to run this project. You can install it from [here](https://bun.sh/).
 
