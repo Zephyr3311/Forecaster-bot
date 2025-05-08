@@ -149,15 +149,21 @@ export async function llmArenaNew(page: Page, url: string) {
 
     if (llmLeaderboard.length) {
       emptyLeaderboardCount = 0; // Reset counter when we get data
+      
+      const uniqueEntries = Array.from(
+        new Map(llmLeaderboard.map((item) => [item.modelName, item])).values()
+      );
+
+      writeFileSync(LEADERBOARD_FILE, JSON.stringify(uniqueEntries, null, 2));
 
       await db
         .insert(llmLeaderboardSchema)
-        .values(llmLeaderboard)
+        .values(uniqueEntries)
         .onConflictDoUpdate({
           target: [llmLeaderboardSchema.modelName],
           set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
         });
-      writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeaderboard, null, 2));
+
       log(`NEW Leaderboard updated with ${llmLeaderboard.length} entries`);
       await new Promise((resolve) => setTimeout(resolve, 400));
     } else {
