@@ -9,6 +9,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  error("Unhandled error:", err);
+  error(err);
   process.exit(1);
 });

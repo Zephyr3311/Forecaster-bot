@@ -302,6 +302,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  error("Unhandled error:", err);
+  error(err);
   process.exit(1);
 });

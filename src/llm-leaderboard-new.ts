@@ -1,6 +1,7 @@
 import { connect } from "puppeteer-real-browser";
 import { checkWhichLeaderboard, LLM_ARENA_NEW_URL } from "./puppeteer";
 import { llmArenaNew } from "./puppeteer/llmArena";
+import { error } from "console";
 
 const main = async () => {
   const { page } = await connect({
@@ -17,4 +18,7 @@ const main = async () => {
   }
 };
 
-main().catch(() => process.exit(1));
+main().catch((err) => {
+  error(err);
+  process.exit(1);
+});
