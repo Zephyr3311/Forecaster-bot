@@ -107,6 +107,7 @@ async function getSubgraphConditionalTokenVolume(
   return totalVolume;
 }
 
+// Modified collectMarketContext function
 async function collectMarketContext() {
   try {
     const markets = await db
@@ -144,8 +145,8 @@ async function collectMarketContext() {
 
       marketDataList.push({
         question: market.question,
-        questionId: market.questionId,
-        endDate: market.endDateIso?.toISOString() || null,
+        questionId: market.questionId, // Keep temporarily for grouping
+        endDate: market.endDateIso?.toISOString() || null, // Keep temporarily for group level
         outcomes,
       });
     }
@@ -157,11 +158,24 @@ async function collectMarketContext() {
       (marketGroupsMap[groupId] ??= []).push(market);
     });
 
+    // Create optimized groups with shared endDate at top level
     const groupedMarkets = Object.entries(marketGroupsMap).map(
-      ([groupId, markets]) => ({
-        groupId,
-        markets,
-      })
+      ([groupId, markets]) => {
+        // Get endDate from first market in group (all should be the same)
+        const endDate = markets[0]?.endDate;
+
+        // Create simplified market objects without questionId and endDate
+        const simplifiedMarkets = markets.map((market) => ({
+          question: market.question,
+          outcomes: market.outcomes,
+        }));
+
+        return {
+          groupId,
+          endDate,
+          markets: simplifiedMarkets,
+        };
+      }
     );
 
     writeFileSync(
