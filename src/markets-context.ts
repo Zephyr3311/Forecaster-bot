@@ -1,44 +1,114 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
 import { and, eq } from "drizzle-orm";
+import { formatUnits } from "ethers/lib/utils";
 import { writeFileSync } from "fs";
 import { db } from "./db";
 import { marketSchema, tokenSchema } from "./db/schema";
-import { getTokenVolumeData } from "./polymarket/markets";
+import {
+  MAX_RESULTS,
+  SUBGRAPH_URL,
+  USDC_ID,
+  USDCE_DIGITS,
+} from "./polymarket/constants";
 
-async function getMarketVolumeData(marketId: number) {
-  const tokens = await db
-    .select()
-    .from(tokenSchema)
-    .where(eq(tokenSchema.marketId, marketId));
+async function getSubgraphConditionalTokenVolume(
+  tokenId: string
+): Promise<number> {
+  let totalVolume = 0;
+  const queryTemplate = (isMakerTokenSoldByMaker: boolean) => `
+   query GetOrderFilledEvents($assetId: String!, $usdcId: String!, $first: Int!, $skip: Int!) {
+     orderFilledEvents(
+       where: { ${
+         isMakerTokenSoldByMaker
+           ? "makerAssetId: $assetId, takerAssetId: $usdcId"
+           : "takerAssetId: $assetId, makerAssetId: $usdcId"
+       } },
+       orderBy: timestamp,
+       orderDirection: asc,
+       first: $first,
+       skip: $skip
+     ) {
+       makerAssetId
+       takerAssetId
+       makerAmountFilled
+       takerAmountFilled
+     }
+   }
+ `;
 
-  const outcomes = [];
+  const fetchPages = async (
+    isMakerTokenSoldByMaker: boolean
+  ): Promise<void> => {
+    let skip = 0;
+    let hasMore = true;
 
-  // Process tokens synchronously
-  for (const token of tokens) {
-    if (!token.tokenId) continue;
+    while (hasMore) {
+      try {
+        const response = await fetch(SUBGRAPH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: queryTemplate(isMakerTokenSoldByMaker),
+            variables: {
+              assetId: tokenId,
+              usdcId: USDC_ID,
+              first: MAX_RESULTS,
+              skip,
+            },
+          }),
+        });
 
-    // Get volume directly from API
-    const volume = await getTokenVolumeData(token.tokenId);
-    const price = parseFloat(token.price?.toString() || "0");
+        if (!response.ok) {
+          error(`Query failed for token ${tokenId}: ${response.status}`);
+          break;
+        }
 
-    // Calculate percentage (price is already between 0-1)
-    const percentage = price * 100;
+        const result = await response.json();
+        if (result.errors) {
+          error(
+            `Query errors for token ${tokenId}: ${JSON.stringify(
+              result.errors
+            )}`
+          );
+          break;
+        }
 
-    outcomes.push({
-      outcome: token.outcome || "Unknown",
-      price: price,
-      percentage: percentage,
-      volume: volume,
-    });
-  }
+        const events = result.data?.orderFilledEvents || [];
+        if (events.length === 0) break;
 
-  return outcomes;
+        events.forEach(
+          (event: {
+            makerAssetId: string;
+            takerAssetId: string;
+            makerAmountFilled: string;
+            takerAmountFilled: string;
+          }) => {
+            const amount = isMakerTokenSoldByMaker
+              ? event.makerAmountFilled
+              : event.takerAmountFilled;
+            totalVolume += parseFloat(formatUnits(amount, USDCE_DIGITS));
+          }
+        );
+
+        skip += events.length;
+        hasMore = events.length === MAX_RESULTS;
+      } catch (err) {
+        error(`Error fetching for token ${tokenId}, skip: ${skip}:`, err);
+        break;
+      }
+    }
+  };
+
+  await fetchPages(true); // Maker sells token for USDC
+  await fetchPages(false); // Maker buys token with USDC
+
+  log(`Fetched volume for ${tokenId}: ${totalVolume}`);
+  return totalVolume;
 }
 
 async function collectMarketContext() {
   try {
-    // Get all active markets
     const markets = await db
       .select()
       .from(marketSchema)
@@ -50,30 +120,43 @@ async function collectMarketContext() {
 
     const marketDataList = [];
 
-    // Process markets synchronously
     for (const market of markets) {
-      const outcomes = await getMarketVolumeData(market.id);
+      const tokens = await db
+        .select()
+        .from(tokenSchema)
+        .where(eq(tokenSchema.marketId, market.id));
+
+      const outcomes = [];
+
+      for (const token of tokens) {
+        if (!token.tokenId) continue;
+
+        const volume = await getSubgraphConditionalTokenVolume(token.tokenId);
+        const price = parseFloat(token.price?.toString() || "0");
+
+        outcomes.push({
+          outcome: token.outcome || "Unknown",
+          price,
+          percentage: price * 100,
+          volume,
+        });
+      }
 
       marketDataList.push({
         question: market.question,
         questionId: market.questionId,
-        endDate: market.endDateIso ? market.endDateIso.toISOString() : null,
-        outcomes: outcomes,
+        endDate: market.endDateIso?.toISOString() || null,
+        outcomes,
       });
     }
 
-    // Group the markets by questionId prefix (first 60 characters)
+    // Group by questionId prefix (first 60 chars)
     const marketGroupsMap: Record<string, typeof marketDataList> = {};
-
-    for (const market of marketDataList) {
+    marketDataList.forEach((market) => {
       const groupId = market.questionId.substring(0, 60);
+      (marketGroupsMap[groupId] ??= []).push(market);
+    });
 
-      if (!marketGroupsMap[groupId]) marketGroupsMap[groupId] = [];
-
-      marketGroupsMap[groupId].push(market);
-    }
-
-    // Convert the grouped map to an array
     const groupedMarkets = Object.entries(marketGroupsMap).map(
       ([groupId, markets]) => ({
         groupId,
@@ -81,25 +164,21 @@ async function collectMarketContext() {
       })
     );
 
-    // Write to file
     writeFileSync(
       "./market-context.json",
       JSON.stringify(groupedMarkets, null, 2)
     );
-
-    log(
-      `Market context data saved to market-context.json with ${groupedMarkets.length} groups`
-    );
+    log(`Market context saved with ${groupedMarkets.length} groups`);
   } catch (err) {
     error(`Error collecting market context:`, err);
   }
-}
-
-async function main() {
-  await collectMarketContext();
 }
 
 main().catch((err) => {
   error(err);
   process.exit(1);
 });
+
+async function main() {
+  await collectMarketContext();
+}
