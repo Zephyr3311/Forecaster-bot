@@ -1,9 +1,10 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { writeFileSync } from "fs";
 import { db } from "./db";
-import { marketSchema, tokenSchema, tradeHistorySchema } from "./db/schema";
+import { marketSchema, tokenSchema } from "./db/schema";
+import { getTokenVolumeData } from "./polymarket/markets";
 
 async function getMarketVolumeData(marketId: number) {
   const tokens = await db
@@ -11,31 +12,28 @@ async function getMarketVolumeData(marketId: number) {
     .from(tokenSchema)
     .where(eq(tokenSchema.marketId, marketId));
 
-  const outcomes = await Promise.all(
-    tokens.map(async (token) => {
-      if (!token.tokenId) return null;
+  const outcomes = [];
 
-      // Get total volume for this token
-      const volumeData = await db
-        .select({
-          totalVolume: sql`SUM(${tradeHistorySchema.volume})`.mapWith(String),
-        })
-        .from(tradeHistorySchema)
-        .where(eq(tradeHistorySchema.tokenId, token.tokenId));
+  // Process tokens synchronously
+  for (const token of tokens) {
+    if (!token.tokenId) continue;
 
-      const volume = parseFloat(volumeData[0]?.totalVolume || "0");
-      const price = parseFloat(token.price?.toString() || "0");
+    // Get volume directly from API
+    const volume = await getTokenVolumeData(token.tokenId);
+    const price = parseFloat(token.price?.toString() || "0");
 
-      return {
-        outcome: token.outcome || "Unknown",
-        price: price,
-        percentage: price * 100, // Price as percentage
-        volume: volume,
-      };
-    })
-  );
+    // Calculate percentage (price is already between 0-1)
+    const percentage = price * 100;
 
-  return outcomes.filter(Boolean);
+    outcomes.push({
+      outcome: token.outcome || "Unknown",
+      price: price,
+      percentage: percentage,
+      volume: volume,
+    });
+  }
+
+  return outcomes;
 }
 
 async function collectMarketContext() {
@@ -50,18 +48,19 @@ async function collectMarketContext() {
 
     log(`Found ${markets.length} active markets`);
 
-    const marketDataList = await Promise.all(
-      markets.map(async (market) => {
-        const outcomes = await getMarketVolumeData(market.id);
+    const marketDataList = [];
 
-        return {
-          question: market.question,
-          questionId: market.questionId,
-          endDate: market.endDateIso ? market.endDateIso.toISOString() : null,
-          outcomes: outcomes,
-        };
-      })
-    );
+    // Process markets synchronously
+    for (const market of markets) {
+      const outcomes = await getMarketVolumeData(market.id);
+
+      marketDataList.push({
+        question: market.question,
+        questionId: market.questionId,
+        endDate: market.endDateIso ? market.endDateIso.toISOString() : null,
+        outcomes: outcomes,
+      });
+    }
 
     // Group the markets by questionId prefix (first 60 characters)
     const marketGroupsMap: Record<string, typeof marketDataList> = {};

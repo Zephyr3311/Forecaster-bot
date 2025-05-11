@@ -19,6 +19,37 @@ import { redeem } from "./redeem";
 const wallet = getWallet(process.env.PK);
 const clobClient = getClobClient(wallet);
 
+// Function to fetch volume data directly from Polymarket API
+export async function getTokenVolumeData(tokenId: string) {
+  try {
+    // Get trades for this token
+    const trades = await clobClient.getTrades({
+      asset_id: tokenId,
+    });
+
+    if (!trades || trades.length === 0) {
+      log(`No trades found for token ${tokenId}`);
+      return 0;
+    }
+
+    // Calculate total volume from trades
+    const volume = trades.reduce((total, trade) => {
+      // Based on the Trade interface, 'size' is the field we want
+      const tradeVolume = parseFloat(trade.size || "0");
+      return total + tradeVolume;
+    }, 0);
+
+    log(
+      `Calculated volume ${volume} from ${trades.length} trades for token ${tokenId}`
+    );
+    return volume;
+  } catch (err) {
+    error(`Error fetching volume for token ${tokenId}:`, err);
+    return 0;
+  }
+}
+
+
 export async function getAllMarkets(): Promise<Market[]> {
   const allMarkets = [];
   let nextCursor = "MA=="; // Initial cursor
