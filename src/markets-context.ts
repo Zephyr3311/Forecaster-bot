@@ -18,6 +18,7 @@ async function getSubgraphConditionalTokenVolume(
   tokenId: string
 ): Promise<number> {
   let totalVolume = 0;
+
   const queryTemplate = (isMakerTokenSoldByMaker: boolean) => `
    query GetOrderFilledEvents($assetId: String!, $usdcId: String!, $first: Int!, $skip: Int!) {
      orderFilledEvents(
@@ -112,7 +113,7 @@ async function getSubgraphConditionalTokenVolume(
 // Modified collectMarketContext function
 async function collectMarketContext() {
   try {
-    const sevenDaysFromNow = dayjs().add(1, "minute").toDate();
+    const sevenDaysFromNow = dayjs().add(1, "day").toDate();
     const markets = await db
       .select()
       .from(marketSchema)
