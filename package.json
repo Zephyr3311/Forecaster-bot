@@ -32,7 +32,8 @@
     "dockerode": "^4.0.6",
     "drizzle-orm": "^0.43.1",
     "ethers": "^5.8.0",
-    "puppeteer-real-browser": "^1.4.2"
+    "puppeteer-real-browser": "^1.4.2",
+    "yaml": "^2.7.1"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "latest",

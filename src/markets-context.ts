@@ -1,8 +1,9 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 import { formatUnits } from "ethers/lib/utils";
 import { writeFileSync } from "fs";
+import { stringify as yamlStringify } from "yaml";
 import { db } from "./db";
 import { marketSchema, tokenSchema } from "./db/schema";
 import {
@@ -11,7 +12,7 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
-
+import dayjs from "dayjs";
 async function getSubgraphConditionalTokenVolume(
   tokenId: string
 ): Promise<number> {
@@ -110,11 +111,18 @@ async function getSubgraphConditionalTokenVolume(
 // Modified collectMarketContext function
 async function collectMarketContext() {
   try {
+    const sevenDaysFromNow = dayjs().add(1, "day").toDate();
+
+    // Filter markets ending within the next 7 days
     const markets = await db
       .select()
       .from(marketSchema)
       .where(
-        and(eq(marketSchema.active, true), eq(marketSchema.closed, false))
+        and(
+          eq(marketSchema.active, true),
+          eq(marketSchema.closed, false),
+          lte(marketSchema.endDateIso, sevenDaysFromNow)
+        )
       );
 
     log(`Found ${markets.length} active markets`);
@@ -179,8 +187,11 @@ async function collectMarketContext() {
     );
 
     writeFileSync(
-      "./market-context.json",
-      JSON.stringify(groupedMarkets, null, 2)
+      "./market-context.yml",
+      yamlStringify(groupedMarkets, {
+        indent: 2,
+        lineWidth: 120,
+      })
     );
     log(`Market context saved with ${groupedMarkets.length} groups`);
   } catch (err) {
