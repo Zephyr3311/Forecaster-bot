@@ -113,7 +113,7 @@ async function getSubgraphConditionalTokenVolume(
 // Modified collectMarketContext function
 async function collectMarketContext() {
   try {
-    const sevenDaysFromNow = dayjs().add(1, "day").toDate();
+    const daysFromNow = dayjs().add(1, "day").toDate();
     const markets = await db
       .select()
       .from(marketSchema)
@@ -123,7 +123,7 @@ async function collectMarketContext() {
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false),
           eq(marketSchema.enableOrderBook, true),
-          lte(marketSchema.endDateIso, sevenDaysFromNow)
+          lte(marketSchema.endDateIso, daysFromNow)
         )
       );
 
