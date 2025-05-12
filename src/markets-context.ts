@@ -13,6 +13,7 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
+import { isSportsMarket } from "./utils/blacklist";
 
 async function getSubgraphConditionalTokenVolume(
   tokenId: string
@@ -115,8 +116,8 @@ async function collectMarketContext() {
   try {
     const max = dayjs().add(7, "day").toDate();
     const min = dayjs().subtract(1, "day").toDate();
-    
-    const markets = await db
+
+    let markets = await db
       .select()
       .from(marketSchema)
       .where(
@@ -129,6 +130,8 @@ async function collectMarketContext() {
           lte(marketSchema.endDateIso, max)
         )
       );
+
+    markets = markets.filter((market) => !isSportsMarket(market.question));
 
     log(`Found ${markets.length} active markets`);
     const marketDataList = [];
