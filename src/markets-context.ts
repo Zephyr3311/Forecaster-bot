@@ -1,7 +1,7 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
 import dayjs from "dayjs";
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, isNull, lte } from "drizzle-orm";
 import { formatUnits } from "ethers/lib/utils";
 import { writeFileSync } from "fs";
 import { stringify as yamlStringify } from "yaml";
@@ -119,6 +119,7 @@ async function collectMarketContext() {
       .from(marketSchema)
       .where(
         and(
+          isNull(marketSchema.gameStartTime),
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false),
           eq(marketSchema.enableOrderBook, true),
