@@ -1,7 +1,7 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
 import dayjs from "dayjs";
-import { and, eq, isNull, lte } from "drizzle-orm";
+import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import { formatUnits } from "ethers/lib/utils";
 import { writeFileSync } from "fs";
 import { stringify as yamlStringify } from "yaml";
@@ -113,7 +113,9 @@ async function getSubgraphConditionalTokenVolume(
 // Modified collectMarketContext function
 async function collectMarketContext() {
   try {
-    const daysFromNow = dayjs().add(1, "day").toDate();
+    const max = dayjs().add(7, "day").toDate();
+    const min = dayjs().subtract(1, "day").toDate();
+    
     const markets = await db
       .select()
       .from(marketSchema)
@@ -123,7 +125,8 @@ async function collectMarketContext() {
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false),
           eq(marketSchema.enableOrderBook, true),
-          lte(marketSchema.endDateIso, daysFromNow)
+          gte(marketSchema.endDateIso, min),
+          lte(marketSchema.endDateIso, max)
         )
       );
 
