@@ -104,7 +104,7 @@ async function getSubgraphConditionalTokenVolume(
   await fetchPages(false); // Maker buys token with USDC
 
   log(`Fetched volume for ${tokenId}: ${totalVolume}`);
-  return totalVolume;
+  return Number(totalVolume.toFixed(3));
 }
 
 // Modified collectMarketContext function
