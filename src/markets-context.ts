@@ -1,5 +1,6 @@
 import "@dotenvx/dotenvx/config";
 import { error, log } from "console";
+import dayjs from "dayjs";
 import { and, eq, lte } from "drizzle-orm";
 import { formatUnits } from "ethers/lib/utils";
 import { writeFileSync } from "fs";
@@ -12,7 +13,7 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
-import dayjs from "dayjs";
+
 async function getSubgraphConditionalTokenVolume(
   tokenId: string
 ): Promise<number> {
@@ -111,9 +112,7 @@ async function getSubgraphConditionalTokenVolume(
 // Modified collectMarketContext function
 async function collectMarketContext() {
   try {
-    const sevenDaysFromNow = dayjs().add(1, "day").toDate();
-
-    // Filter markets ending within the next 7 days
+    const sevenDaysFromNow = dayjs().add(1, "minute").toDate();
     const markets = await db
       .select()
       .from(marketSchema)
@@ -121,15 +120,21 @@ async function collectMarketContext() {
         and(
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false),
+          eq(marketSchema.enableOrderBook, true),
           lte(marketSchema.endDateIso, sevenDaysFromNow)
         )
       );
 
     log(`Found ${markets.length} active markets`);
-
     const marketDataList = [];
 
-    for (const market of markets) {
+    // Save progress after processing each market
+    for (let i = 0; i < markets.length; i++) {
+      const market = markets[i]!;
+      console.log(
+        `Processing market ${i + 1}/${markets.length}: ${market.question}`
+      );
+
       const tokens = await db
         .select()
         .from(tokenSchema)
@@ -139,61 +144,58 @@ async function collectMarketContext() {
 
       for (const token of tokens) {
         if (!token.tokenId) continue;
-
         const volume = await getSubgraphConditionalTokenVolume(token.tokenId);
         const price = parseFloat(token.price?.toString() || "0");
-
         outcomes.push({
           outcome: token.outcome || "Unknown",
           price,
-          percentage: price * 100,
           volume,
         });
       }
 
       marketDataList.push({
         question: market.question,
-        questionId: market.questionId, // Keep temporarily for grouping
-        endDate: market.endDateIso?.toISOString() || null, // Keep temporarily for group level
+        questionId: market.questionId,
+        endDate: market.endDateIso?.toISOString() || null,
         outcomes,
       });
+
+      // Group and save after each market is processed
+      const marketGroupsMap: Record<string, typeof marketDataList> = {};
+      marketDataList.forEach((m) => {
+        const groupId = m.questionId.substring(0, 60);
+        (marketGroupsMap[groupId] ??= []).push(m);
+      });
+
+      const groupedMarkets = Object.entries(marketGroupsMap)
+        .map(([groupId, markets]) => ({
+          groupId,
+          endDate: markets[0]?.endDate!,
+          markets: markets.map((market) => ({
+            question: market.question,
+            outcomes: market.outcomes,
+          })),
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
+        );
+
+      writeFileSync(
+        "./market-context.yml",
+        yamlStringify(groupedMarkets, {
+          indent: 2,
+          lineWidth: 120,
+        })
+      );
+      log(
+        `Progress saved: ${i + 1}/${markets.length} markets processed (${
+          groupedMarkets.length
+        } groups)`
+      );
     }
 
-    // Group by questionId prefix (first 60 chars)
-    const marketGroupsMap: Record<string, typeof marketDataList> = {};
-    marketDataList.forEach((market) => {
-      const groupId = market.questionId.substring(0, 60);
-      (marketGroupsMap[groupId] ??= []).push(market);
-    });
-
-    // Create optimized groups with shared endDate at top level
-    const groupedMarkets = Object.entries(marketGroupsMap).map(
-      ([groupId, markets]) => {
-        // Get endDate from first market in group (all should be the same)
-        const endDate = markets[0]?.endDate;
-
-        // Create simplified market objects without questionId and endDate
-        const simplifiedMarkets = markets.map((market) => ({
-          question: market.question,
-          outcomes: market.outcomes,
-        }));
-
-        return {
-          groupId,
-          endDate,
-          markets: simplifiedMarkets,
-        };
-      }
-    );
-
-    writeFileSync(
-      "./market-context.yml",
-      yamlStringify(groupedMarkets, {
-        indent: 2,
-        lineWidth: 120,
-      })
-    );
-    log(`Market context saved with ${groupedMarkets.length} groups`);
+    log(`Market context collection completed`);
   } catch (err) {
     error(`Error collecting market context:`, err);
   }
