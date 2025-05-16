@@ -15,6 +15,8 @@ import {
 } from "./polymarket/constants";
 import { isSportsMarket } from "./utils/blacklist";
 
+const MIN_TOKEN_PERCENTAGE = 2;
+
 async function getSubgraphConditionalTokenVolume(
   tokenId: string
 ): Promise<number> {
@@ -148,12 +150,35 @@ async function collectMarketContext() {
         .from(tokenSchema)
         .where(eq(tokenSchema.marketId, market.id));
 
-      const outcomes = [];
+      // Check if at least one token has a price that meets the minimum threshold
+      let hasTokenMeetingThreshold = false;
 
+      for (const token of tokens) {
+        const price = parseFloat(token.price?.toString() || "0");
+        const pricePercentage = price * 100;
+
+        // If any token meets or exceeds the minimum percentage threshold
+        if (pricePercentage >= MIN_TOKEN_PERCENTAGE) {
+          hasTokenMeetingThreshold = true;
+          break;
+        }
+      }
+
+      // Skip this market if no token meets the threshold
+      if (MIN_TOKEN_PERCENTAGE > 0 && !hasTokenMeetingThreshold) {
+        console.log(
+          `Skipping market - no tokens meet minimum threshold of ${MIN_TOKEN_PERCENTAGE}%: ${market.question}`
+        );
+        continue;
+      }
+
+      // Now fetch volumes only for markets that we're keeping
+      const outcomes = [];
       for (const token of tokens) {
         if (!token.tokenId) continue;
         const volume = await getSubgraphConditionalTokenVolume(token.tokenId);
         const price = parseFloat(token.price?.toString() || "0");
+
         outcomes.push({
           outcome: token.outcome || "Unknown",
           price,
