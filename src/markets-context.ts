@@ -150,24 +150,30 @@ async function collectMarketContext() {
         .from(tokenSchema)
         .where(eq(tokenSchema.marketId, market.id));
 
-      // Check if at least one token has a price that meets the minimum threshold
-      let hasTokenMeetingThreshold = false;
+      // Check if at least one token meets our criteria
+      // For a market to be valid, any token needs to have a price in the range [MIN_TOKEN_PERCENTAGE/100, (100-MIN_TOKEN_PERCENTAGE)/100]
+      let hasValidPricing = false;
 
       for (const token of tokens) {
         const price = parseFloat(token.price?.toString() || "0");
-        const pricePercentage = price * 100;
 
-        // If any token meets or exceeds the minimum percentage threshold
-        if (pricePercentage >= MIN_TOKEN_PERCENTAGE) {
-          hasTokenMeetingThreshold = true;
+        // Check if the price is at least MIN_TOKEN_PERCENTAGE/100 and at most (100-MIN_TOKEN_PERCENTAGE)/100
+        // For MIN_TOKEN_PERCENTAGE=2, token is valid if 0.02 <= price <= 0.98
+        if (
+          price >= MIN_TOKEN_PERCENTAGE / 100 &&
+          price <= (100 - MIN_TOKEN_PERCENTAGE) / 100
+        ) {
+          hasValidPricing = true;
           break;
         }
       }
 
-      // Skip this market if no token meets the threshold
-      if (MIN_TOKEN_PERCENTAGE > 0 && !hasTokenMeetingThreshold) {
+      // Skip this market if no token has valid pricing
+      if (!hasValidPricing) {
         console.log(
-          `Skipping market - no tokens meet minimum threshold of ${MIN_TOKEN_PERCENTAGE}%: ${market.question}`
+          `Skipping market - no tokens have prices in the valid range ${
+            MIN_TOKEN_PERCENTAGE / 100
+          } to ${(100 - MIN_TOKEN_PERCENTAGE) / 100}: ${market.question}`
         );
         continue;
       }
