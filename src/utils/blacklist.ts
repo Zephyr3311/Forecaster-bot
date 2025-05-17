@@ -79,7 +79,7 @@ const SPORTS_PLAYERS = [
 ];
 
 // Sports events, matches, and related terms
-const SPORTS_EVENTS = ["Constructor score", "Preakness Stakes"];
+const SPORTS_EVENTS = ["Constructor score", "Preakness Stakes", "FA Cup"];
 
 // Function to check if a market is sports-related
 export function isSportsMarket(marketQuestion: string): boolean {

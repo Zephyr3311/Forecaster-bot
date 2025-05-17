@@ -142,9 +142,7 @@ async function collectMarketContext() {
 
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]!;
-      log(
-        `Processing market ${i + 1}/${markets.length}: ${market.question}`
-      );
+      log(`Processing market ${i + 1}/${markets.length}: ${market.question}`);
 
       const tokens = await db
         .select()
@@ -207,6 +205,7 @@ async function collectMarketContext() {
 
       marketDataList.push({
         question: market.question,
+        description: market.description,
         questionId: market.questionId,
         endDate: market.endDateIso?.toISOString() || null,
         outcomes: outcomeData,
@@ -222,8 +221,8 @@ async function collectMarketContext() {
 
       const groupedMarkets = Object.entries(marketGroupsMap)
         .map(([groupId, markets]) => ({
-          groupId,
           endDate: markets[0]?.endDate!,
+          rules: markets[0]?.description,
           markets: markets.map((market) => ({
             question: market.question,
             outcomes: market.outcomes,
