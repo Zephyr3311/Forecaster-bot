@@ -13,6 +13,7 @@ const SPORTS_LEAGUES = [
   "Olympics",
   "League",
   "Playoffs",
+  "Serie A",
   "EPL", // English Premier League
   "UFC", // Ultimate Fighting Championship
 ];
@@ -44,6 +45,13 @@ const SPORTS_TEAMS = [
   "Arsenal",
   "Chelsea",
   "Aston Villa",
+  "Inter Milan",
+  "AC Milan",
+  "Real Madrid",
+  "Barcelona",
+  "Atletico Madrid",
+  "Borussia Dortmund",
+  "Napoli",
 ];
 
 // Player names and sports figures

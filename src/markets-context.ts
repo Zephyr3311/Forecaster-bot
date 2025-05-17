@@ -116,14 +116,6 @@ async function getSubgraphConditionalTokenVolume(
   return Number(totalVolume.toFixed(3));
 }
 
-// Calculate estimated slippage based on investment amount and market volume
-function calculateSlippage(volume: number, investmentAmount: number): number {
-  if (volume === 0) return Infinity;
-
-  // Simple model: slippage is roughly proportional to (investment / volume)
-  return (investmentAmount / volume) * 100;
-}
-
 async function collectMarketContext() {
   try {
     const max = dayjs().add(14, "day").toDate();
@@ -150,7 +142,7 @@ async function collectMarketContext() {
 
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]!;
-      console.log(
+      log(
         `Processing market ${i + 1}/${markets.length}: ${market.question}`
       );
 
@@ -178,51 +170,47 @@ async function collectMarketContext() {
       // Skip this market if no token has valid pricing
       if (!hasValidPricing) continue;
 
-      // Fetch volumes and check slippage
       const outcomeData: Record<string, number> = {};
       let totalVolume = 0;
-      let volumes = [];
       let validTokenCount = 0;
 
       for (const token of tokens) {
         if (!token.tokenId) continue;
         const volume = await getSubgraphConditionalTokenVolume(token.tokenId);
         totalVolume += volume;
-        volumes.push(volume);
         validTokenCount++;
 
         const price = parseFloat(token.price?.toString() || "0");
         const outcome = token.outcome || "Unknown";
 
-        // Use outcome as key
         outcomeData[outcome] = price;
-      }
-
-      // Keep using actual volumes for slippage calculation
-      const lowestVolume = Math.min(...volumes);
-      const positionSize = PORTFOLIO_VALUE * 0.1; // 10% of portfolio
-      const estimatedSlippage = calculateSlippage(lowestVolume, positionSize);
-
-      // Skip market if slippage is too high
-      if (estimatedSlippage > MAX_SLIPPAGE_PERCENTAGE) {
-        log(
-          `Skipping market due to high slippage (${estimatedSlippage.toFixed(
-            2
-          )}%): ${market.question}`
-        );
-        continue;
       }
 
       // Calculate normalized volume per token for reporting
       const normalizedVolume =
         validTokenCount > 0 ? totalVolume / validTokenCount : 0;
 
+      // Calculate slippage percentage inline and check if it's too high
+      const slippagePercentage =
+        normalizedVolume === 0
+          ? Infinity
+          : (PORTFOLIO_VALUE / normalizedVolume) * 100;
+
+      if (slippagePercentage > MAX_SLIPPAGE_PERCENTAGE) {
+        log(
+          `Skipping market due to high slippage (${slippagePercentage.toFixed(
+            2
+          )}%): ${market.question}`
+        );
+        continue;
+      }
+
       marketDataList.push({
         question: market.question,
         questionId: market.questionId,
         endDate: market.endDateIso?.toISOString() || null,
         outcomes: outcomeData,
-        volume: Number(normalizedVolume.toFixed(2)), // Use normalized volume for reporting
+        volume: Number(normalizedVolume.toFixed(2)),
       });
 
       // Group and save after each market is processed
@@ -266,7 +254,6 @@ async function collectMarketContext() {
     error(`Error collecting market context:`, err);
   }
 }
-
 async function main() {
   await syncMarkets();
   await collectMarketContext();
