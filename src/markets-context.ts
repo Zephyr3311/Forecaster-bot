@@ -118,10 +118,8 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
     }
   };
 
-  await Promise.all([
-    fetchSide(true), // Maker sells token for USDC
-    fetchSide(false), // Maker buys token with USDC
-  ]);
+  await fetchSide(true); // Maker sells token for USDC
+  await fetchSide(false); // Maker buys token with USDC
 }
 
 async function calculateTokenVolume(tokenId: string) {
