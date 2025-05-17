@@ -13,18 +13,11 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
-import { syncMarkets } from "./polymarket/markets";
 import { isSportsMarket } from "./utils/blacklist";
 
 const MIN_TOKEN_PERCENTAGE = 2; // 2%
 const PORTFOLIO_VALUE = 4000; // $4,000 portfolio value
 const MAX_SLIPPAGE_PERCENTAGE = 5; // 5% max slippage threshold
-
-interface TradeEvent {
-  makerAmountFilled: string;
-  takerAmountFilled: string;
-  timestamp: string;
-}
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db
@@ -33,12 +26,9 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
     .where(eq(tradeHistorySchema.tokenId, tokenId))
     .then((rows) => Number(rows[0]?.maxTs || 0) + 1);
 
-  log(`Fetching trades for ${tokenId} from timestamp ${lastTs}`);
-
   const fetchSide = async (isMakerSeller: boolean) => {
     let skip = 0,
       hasMore = true;
-    const side = isMakerSeller ? "maker" : "taker";
 
     while (hasMore) {
       try {
@@ -81,10 +71,10 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
         const result = await response.json();
         if (result.errors) throw new Error(JSON.stringify(result.errors));
 
-        const events = result.data?.orderFilledEvents || [];
+        const events: any[] = result.data?.orderFilledEvents || [];
         if (!events.length) break;
 
-        const trades = events.map((event: TradeEvent) => {
+        const trades = events.map((event) => {
           const baseAmount = BigInt(
             isMakerSeller ? event.makerAmountFilled : event.takerAmountFilled
           );
@@ -117,13 +107,12 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
             .onConflictDoNothing({
               target: [tradeHistorySchema.tokenId, tradeHistorySchema.ts],
             });
-          log(`Added ${trades.length} ${side} trades for ${tokenId}`);
         }
 
         skip += events.length;
         hasMore = events.length === MAX_RESULTS;
       } catch (err) {
-        error(`Error fetching ${side} trades for ${tokenId}: ${err}`);
+        error(err);
         break;
       }
     }
@@ -268,7 +257,7 @@ async function collectMarketContext() {
 }
 
 async function main() {
-  await syncMarkets();
+  // await syncMarkets();
   await collectMarketContext();
 }
 
