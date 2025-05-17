@@ -13,6 +13,8 @@ const SPORTS_LEAGUES = [
   "Olympics",
   "League",
   "Playoffs",
+  "EPL", // English Premier League
+  "UFC", // Ultimate Fighting Championship
 ];
 
 // Sports teams
@@ -37,6 +39,11 @@ const SPORTS_TEAMS = [
   "paiN",
   "Aurora",
   "MongolZ",
+  "Manchester City",
+  "Newcastle United",
+  "Arsenal",
+  "Chelsea",
+  "Aston Villa",
 ];
 
 // Player names and sports figures
@@ -49,33 +56,22 @@ const SPORTS_PLAYERS = [
   "Russell Henley",
   "Patrick Cantlay",
   "Viktor Hovland",
+  "Burns",
+  "Morales",
+  "Gordon",
+  "Moisés",
+  "Yusuff",
+  "Santos",
+  "Lisboa",
+  "Pennington",
+  "Pinheiro",
+  "Park",
+  "Hernandez",
+  "Mohamed Salah",
 ];
 
 // Sports events, matches, and related terms
-const SPORTS_EVENTS = [
-  "Finals",
-  "matchup",
-  "Game",
-  "Match",
-  "win",
-  "beat",
-  "score",
-  "Draft Lottery",
-  "Advance",
-  "Constructor score",
-  "Preakness Stakes",
-];
-
-// Sports-specific actions and terminology
-const SPORTS_TERMINOLOGY = [
-  "win",
-  "beat",
-  "score",
-  "finish",
-  "qualify",
-  "advance",
-  "highest",
-];
+const SPORTS_EVENTS = ["Constructor score", "Preakness Stakes"];
 
 // Function to check if a market is sports-related
 export function isSportsMarket(marketQuestion: string): boolean {
@@ -92,11 +88,8 @@ export function isSportsMarket(marketQuestion: string): boolean {
     SPORTS_PLAYERS.some((term) =>
       normalizedQuestion.includes(term.toLowerCase())
     ) ||
-    (SPORTS_EVENTS.some((term) =>
+    SPORTS_EVENTS.some((term) =>
       normalizedQuestion.includes(term.toLowerCase())
-    ) &&
-      SPORTS_TERMINOLOGY.some((term) =>
-        normalizedQuestion.includes(term.toLowerCase())
-      ))
+    )
   );
 }

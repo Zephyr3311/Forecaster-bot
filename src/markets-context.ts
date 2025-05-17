@@ -13,9 +13,12 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
+import { syncMarkets } from "./polymarket/markets";
 import { isSportsMarket } from "./utils/blacklist";
 
-const MIN_TOKEN_PERCENTAGE = 2;
+const MIN_TOKEN_PERCENTAGE = 2; // 2%
+const PORTFOLIO_VALUE = 4000; // $4,000 portfolio value
+const MAX_SLIPPAGE_PERCENTAGE = 5; // 5% max slippage threshold
 
 async function getSubgraphConditionalTokenVolume(
   tokenId: string
@@ -113,10 +116,17 @@ async function getSubgraphConditionalTokenVolume(
   return Number(totalVolume.toFixed(3));
 }
 
-// Modified collectMarketContext function
+// Calculate estimated slippage based on investment amount and market volume
+function calculateSlippage(volume: number, investmentAmount: number): number {
+  if (volume === 0) return Infinity;
+
+  // Simple model: slippage is roughly proportional to (investment / volume)
+  return (investmentAmount / volume) * 100;
+}
+
 async function collectMarketContext() {
   try {
-    const max = dayjs().add(7, "day").toDate();
+    const max = dayjs().add(14, "day").toDate();
     const min = dayjs().subtract(1, "day").toDate();
 
     let markets = await db
@@ -138,7 +148,6 @@ async function collectMarketContext() {
     log(`Found ${markets.length} active markets`);
     const marketDataList = [];
 
-    // Save progress after processing each market
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]!;
       console.log(
@@ -150,8 +159,6 @@ async function collectMarketContext() {
         .from(tokenSchema)
         .where(eq(tokenSchema.marketId, market.id));
 
-      // Check if at least one token meets our criteria
-      // For a market to be valid, any token needs to have a price in the range [MIN_TOKEN_PERCENTAGE/100, (100-MIN_TOKEN_PERCENTAGE)/100]
       let hasValidPricing = false;
 
       for (const token of tokens) {
@@ -169,34 +176,53 @@ async function collectMarketContext() {
       }
 
       // Skip this market if no token has valid pricing
-      if (!hasValidPricing) {
-        console.log(
-          `Skipping market - no tokens have prices in the valid range ${
-            MIN_TOKEN_PERCENTAGE / 100
-          } to ${(100 - MIN_TOKEN_PERCENTAGE) / 100}: ${market.question}`
+      if (!hasValidPricing) continue;
+
+      // Fetch volumes and check slippage
+      const outcomeData: Record<string, number> = {};
+      let totalVolume = 0;
+      let volumes = [];
+      let validTokenCount = 0;
+
+      for (const token of tokens) {
+        if (!token.tokenId) continue;
+        const volume = await getSubgraphConditionalTokenVolume(token.tokenId);
+        totalVolume += volume;
+        volumes.push(volume);
+        validTokenCount++;
+
+        const price = parseFloat(token.price?.toString() || "0");
+        const outcome = token.outcome || "Unknown";
+
+        // Use outcome as key
+        outcomeData[outcome] = price;
+      }
+
+      // Keep using actual volumes for slippage calculation
+      const lowestVolume = Math.min(...volumes);
+      const positionSize = PORTFOLIO_VALUE * 0.1; // 10% of portfolio
+      const estimatedSlippage = calculateSlippage(lowestVolume, positionSize);
+
+      // Skip market if slippage is too high
+      if (estimatedSlippage > MAX_SLIPPAGE_PERCENTAGE) {
+        log(
+          `Skipping market due to high slippage (${estimatedSlippage.toFixed(
+            2
+          )}%): ${market.question}`
         );
         continue;
       }
 
-      // Now fetch volumes only for markets that we're keeping
-      const outcomes = [];
-      for (const token of tokens) {
-        if (!token.tokenId) continue;
-        const volume = await getSubgraphConditionalTokenVolume(token.tokenId);
-        const price = parseFloat(token.price?.toString() || "0");
-
-        outcomes.push({
-          outcome: token.outcome || "Unknown",
-          price,
-          volume,
-        });
-      }
+      // Calculate normalized volume per token for reporting
+      const normalizedVolume =
+        validTokenCount > 0 ? totalVolume / validTokenCount : 0;
 
       marketDataList.push({
         question: market.question,
         questionId: market.questionId,
         endDate: market.endDateIso?.toISOString() || null,
-        outcomes,
+        outcomes: outcomeData,
+        volume: Number(normalizedVolume.toFixed(2)), // Use normalized volume for reporting
       });
 
       // Group and save after each market is processed
@@ -213,6 +239,7 @@ async function collectMarketContext() {
           markets: markets.map((market) => ({
             question: market.question,
             outcomes: market.outcomes,
+            volume: market.volume,
           })),
         }))
         .sort(
@@ -240,11 +267,12 @@ async function collectMarketContext() {
   }
 }
 
+async function main() {
+  await syncMarkets();
+  await collectMarketContext();
+}
+
 main().catch((err) => {
   error(err);
   process.exit(1);
 });
-
-async function main() {
-  await collectMarketContext();
-}
