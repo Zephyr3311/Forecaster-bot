@@ -69,7 +69,7 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
         if (!response.ok) throw new Error(`Query failed: ${response.status}`);
 
         const result = await response.json();
-        if (result.errors) throw new Error(JSON.stringify(result.errors));
+        if (result.errors) throw result.errors;
 
         const events: any[] = result.data?.orderFilledEvents || [];
         if (!events.length) break;
