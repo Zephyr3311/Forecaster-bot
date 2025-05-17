@@ -112,7 +112,7 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
         skip += events.length;
         hasMore = events.length === MAX_RESULTS;
       } catch (err) {
-        error(err);
+        error("Error fetching trade history:", err);
         break;
       }
     }
