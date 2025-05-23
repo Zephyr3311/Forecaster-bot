@@ -132,14 +132,14 @@ export async function llmArenaNew(page: Page, url: string) {
       if (tds.length > 0) {
         const entry = {
           rankUb: $(tds[0]).text().trim(),
-          rankStyleCtrl: $(tds[1]).text().trim(),
-          model: $(tds[2]).text().trim(),
-          modelName: extractModelName($(tds[2]).text()),
-          arenaScore: $(tds[3]).text().trim(),
-          ci: $(tds[4]).text().trim(),
-          votes: parseFormattedNumber($(tds[5]).text().trim()),
-          organization: $(tds[6]).text().trim(),
-          license: $(tds[7]).text().trim(),
+          // rankStyleCtrl: $(tds[1]).text().trim(),
+          model: $(tds[1]).text().trim(),
+          modelName: extractModelName($(tds[1]).text()),
+          arenaScore: $(tds[2]).text().trim(),
+          ci: $(tds[3]).text().trim(),
+          votes: parseFormattedNumber($(tds[4]).text().trim()),
+          organization: $(tds[5]).text().trim(),
+          license: $(tds[6]).text().trim(),
         };
         llmLeaderboard.push(
           entry as unknown as typeof llmLeaderboardSchema.$inferInsert

@@ -1,5 +1,5 @@
 {
-  "id": "e639eeb6-f1bc-4515-bb7e-0577fdc2531d",
+  "id": "ea277f53-1c78-4c16-a929-f96f9115640c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -24,7 +24,7 @@
           "name": "rank_style_ctrl",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "model": {
           "name": "model",

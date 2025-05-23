@@ -13,7 +13,7 @@ import {
 export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
   id: serial("id").primaryKey(),
   rankUb: integer("rank_ub").notNull(),
-  rankStyleCtrl: integer("rank_style_ctrl").notNull(),
+  rankStyleCtrl: integer("rank_style_ctrl"),
   model: text("model").notNull().unique(),
   modelName: text("model_name").notNull().unique(),
   arenaScore: integer("arena_score").notNull(),

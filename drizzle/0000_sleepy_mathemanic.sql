@@ -1,7 +1,7 @@
 CREATE TABLE "llm_leaderboard" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"rank_ub" integer NOT NULL,
-	"rank_style_ctrl" integer NOT NULL,
+	"rank_style_ctrl" integer,
 	"model" text NOT NULL,
 	"model_name" text NOT NULL,
 	"arena_score" integer NOT NULL,
