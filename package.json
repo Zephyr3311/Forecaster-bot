@@ -26,11 +26,11 @@
   "dependencies": {
     "@ethersproject/abstract-provider": "^5.8.0",
     "@polymarket/clob-client": "^4.15.0",
-    "alchemy-sdk": "^3.5.9",
+    "alchemy-sdk": "^3.5.10",
     "cheerio": "^1.0.0",
     "dayjs": "^1.11.13",
     "dockerode": "^4.0.6",
-    "drizzle-orm": "^0.43.1",
+    "drizzle-orm": "^0.44.0",
     "ethers": "^5.8.0",
     "puppeteer-real-browser": "^1.4.2",
     "yaml": "^2.8.0"
