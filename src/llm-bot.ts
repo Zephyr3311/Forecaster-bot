@@ -271,7 +271,7 @@ async function runCycle(assetIds: string[]): Promise<void> {
       console.log(
         `Buying position for ${topModelOrg} (token ID: ${yesToken.tokenId})`
       );
-      // await buyPosition(yesToken.tokenId, topModelOrg);
+      await buyPosition(yesToken.tokenId, topModelOrg);
     } else {
       log(`Already holding ${topModelOrg} position, no need to buy`);
       portfolioState.currentModelOrg = topModelOrg;
