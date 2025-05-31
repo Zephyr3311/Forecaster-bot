@@ -1,7 +1,8 @@
+import "@dotenvx/dotenvx/config";
+import { error } from "console";
 import { connect } from "puppeteer-real-browser";
 import { checkWhichLeaderboard, LLM_ARENA_NEW_URL } from "./puppeteer";
 import { llmArenaNew } from "./puppeteer/llmArena";
-import { error } from "console";
 
 const main = async () => {
   const { page } = await connect({

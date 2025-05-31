@@ -257,7 +257,7 @@ export async function checkAndClaimResolvedMarkets(
 
         try {
           // Create redemption transaction
-          const tx = await redeem(market.conditionId, market.negRisk, [
+          await redeem(market.conditionId, market.negRisk, [
             token.outcome?.toLowerCase() === "yes" ? balance : "0",
             token.outcome?.toLowerCase() === "no" ? balance : "0",
           ]);

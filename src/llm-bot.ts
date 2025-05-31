@@ -268,7 +268,10 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
     // Only buy if we don't already have a significant position
     if (BigInt(currentBalance) <= MINIMUM_BALANCE) {
-      await buyPosition(yesToken.tokenId, topModelOrg);
+      console.log(
+        `Buying position for ${topModelOrg} (token ID: ${yesToken.tokenId})`
+      );
+      // await buyPosition(yesToken.tokenId, topModelOrg);
     } else {
       log(`Already holding ${topModelOrg} position, no need to buy`);
       portfolioState.currentModelOrg = topModelOrg;

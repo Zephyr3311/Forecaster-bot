@@ -1,7 +1,7 @@
+import { error } from "console";
 import { connect } from "puppeteer-real-browser";
 import { checkWhichLeaderboard } from "./puppeteer";
 import { llmArena, llmArenaNew } from "./puppeteer/llmArena";
-import { error } from "console";
 
 const main = async () => {
   const { page } = await connect({
