@@ -16,8 +16,9 @@ import {
 import { isSportsMarket } from "./utils/blacklist";
 
 const MIN_TOKEN_PERCENTAGE = 2; // 2%
-const PORTFOLIO_VALUE = 4000; // $4,000 portfolio value
+const PORTFOLIO_VALUE = 4026; // $4,000 portfolio value
 const MAX_SLIPPAGE_PERCENTAGE = 5; // 5% max slippage threshold
+const MAX_DAYS = 31; // Max days to look ahead for markets
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db
@@ -133,7 +134,7 @@ async function calculateTokenVolume(tokenId: string) {
 
 async function collectMarketContext() {
   try {
-    const max = dayjs().add(14, "day").toDate();
+    const max = dayjs().add(MAX_DAYS, "day").toDate();
     const min = dayjs().subtract(1, "day").toDate();
 
     let markets = await db

@@ -269,6 +269,7 @@ export async function checkAndClaimResolvedMarkets(
           portfolioState.updateCollateralBalance("0");
 
           log(`✅ Successfully redeemed position for ${market.question}`);
+          portfolioState.currentModelOrg = null; // Reset current position after redemption
         } catch (err) {
           error(`Failed to redeem for market ${market.question}:`, err);
         }
