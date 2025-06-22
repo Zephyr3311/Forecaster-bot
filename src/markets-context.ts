@@ -15,10 +15,10 @@ import {
 } from "./polymarket/constants";
 import { isSportsMarket } from "./utils/blacklist";
 
-const MIN_TOKEN_PERCENTAGE = 2; // 2%
-const PORTFOLIO_VALUE = 4026; // $4,000 portfolio value
+const MIN_TOKEN_PERCENTAGE = 5; // 2%
+const PORTFOLIO_VALUE = 4400; // $4,000 portfolio value
 const MAX_SLIPPAGE_PERCENTAGE = 5; // 5% max slippage threshold
-const MAX_DAYS = 31; // Max days to look ahead for markets
+const MAX_DAYS = 10; // Max days to look ahead for markets
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db

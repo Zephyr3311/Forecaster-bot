@@ -1,6 +1,7 @@
 /// <reference path="../types/gradio.d.ts" />
 import * as cheerio from "cheerio";
 import { log } from "console";
+import dayjs from "dayjs";
 import { writeFileSync } from "fs";
 import type { Page } from "rebrowser-puppeteer-core";
 import {
@@ -80,7 +81,10 @@ export async function llmArena(page: Page) {
           set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
         });
       writeFileSync(LEADERBOARD_FILE, JSON.stringify(llmLeadeboard, null, 2));
-      log(`OLD Leaderboard updated with ${llmLeadeboard.length} entries`);
+      log(
+        dayjs().format("DD-MM-YYYY HH:mm:ss"),
+        `OLD Leaderboard updated with ${llmLeadeboard.length} entries`
+      );
       await new Promise((resolve) => setTimeout(resolve, 400));
     } else {
       emptyLeaderboardCount++;
@@ -149,7 +153,7 @@ export async function llmArenaNew(page: Page, url: string) {
 
     if (llmLeaderboard.length) {
       emptyLeaderboardCount = 0; // Reset counter when we get data
-      
+
       const uniqueEntries = Array.from(
         new Map(llmLeaderboard.map((item) => [item.modelName, item])).values()
       );
@@ -164,7 +168,10 @@ export async function llmArenaNew(page: Page, url: string) {
           set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
         });
 
-      log(`NEW Leaderboard updated with ${llmLeaderboard.length} entries`);
+      log(
+        dayjs().format("DD-MM-YYYY HH:mm:ss"),
+        `NEW Leaderboard updated with ${llmLeaderboard.length} entries`
+      );
       await new Promise((resolve) => setTimeout(resolve, 400));
     } else {
       emptyLeaderboardCount++;
