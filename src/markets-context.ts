@@ -14,11 +14,12 @@ import {
   USDCE_DIGITS,
 } from "./polymarket/constants";
 import { isSportsMarket } from "./utils/blacklist";
+import { syncMarkets } from "./polymarket/markets";
 
-const MIN_TOKEN_PERCENTAGE = 3; // 2%
-const PORTFOLIO_VALUE = 4430; // $4,000 portfolio value
-const MAX_SLIPPAGE_PERCENTAGE = 2; // 5% max slippage threshold
-const MAX_DAYS = 14; // Max days to look ahead for markets
+const MIN_TOKEN_PERCENTAGE = 5; // 2%
+const PORTFOLIO_VALUE = 4624; // $4,000 portfolio value
+const MAX_SLIPPAGE_PERCENTAGE = 3; // 5% max slippage threshold
+const MAX_DAYS = 20; // Max days to look ahead for markets
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db
@@ -256,7 +257,7 @@ async function collectMarketContext() {
 }
 
 async function main() {
-  // await syncMarkets();
+  await syncMarkets();
   await collectMarketContext();
 }
 

@@ -21,27 +21,27 @@ const clobClient = getClobClient(wallet);
 
 export async function getAllMarkets(): Promise<Market[]> {
   const allMarkets = [];
-  let nextCursor = "MA=="; // Initial cursor
+  let nextCursor = "MA==";
 
   while (nextCursor !== "LTE=") {
     try {
       const response = await clobClient.getMarkets(nextCursor);
-      allMarkets.push(...response.data);
+      allMarkets.push(...(response.data || []));
       nextCursor = response.next_cursor;
       log(
-        `Fetched ${response.data.length} markets, next cursor: ${atob(
+        `Fetched ${response.data?.length || 0} markets, next cursor: ${atob(
           nextCursor
         )}`
       );
     } catch (err) {
       error("Error fetching markets:", err);
-      break;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Don't continue - keep same cursor and retry
     }
   }
 
   return allMarkets;
 }
-
 export async function upsertMarkets(marketsList: Market[]) {
   const startTime = new Date();
   log(

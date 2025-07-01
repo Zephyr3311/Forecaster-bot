@@ -40,7 +40,7 @@
     "@types/bun": "latest",
     "@types/dockerode": "latest",
     "@types/node": "latest",
-    "drizzle-kit": "^0.31.3",
+    "drizzle-kit": "^0.31.4",
     "postgres": "^3.4.7"
   },
   "peerDependencies": {
