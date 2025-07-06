@@ -16,7 +16,7 @@
     "twitter-bot": "bun --bun --watch src/twitter-bot.ts",
     "llm-bot": "bun --bun --watch src/llm-bot.ts",
     "markets": "bun --bun --watch src/markets.ts",
-    "markets-context": "bun --bun src/markets-context.ts",
+    "mc": "bun --bun src/markets-context.ts",
     "llm-leaderboard": "bun --bun src/llm-leaderboard.ts",
     "llm-leaderboard-new": "bun --bun src/llm-leaderboard-new.ts",
     "drizzle": "bun run reset && drizzle-kit generate",
@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@ethersproject/abstract-provider": "^5.8.0",
-    "@polymarket/clob-client": "^4.18.0",
+    "@polymarket/clob-client": "^4.19.0",
     "alchemy-sdk": "^3.6.1",
     "cheerio": "^1.1.0",
     "dayjs": "^1.11.13",

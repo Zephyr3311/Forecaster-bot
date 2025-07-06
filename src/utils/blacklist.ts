@@ -78,6 +78,7 @@ const SPORTS_PLAYERS = [
   "Mohamed Salah",
   "Blanchfield",
   "Barber",
+  "Carlos Alcaraz",
 ];
 
 // Sports events, matches, and related terms
@@ -86,6 +87,7 @@ const SPORTS_EVENTS = [
   "Preakness Stakes",
   "FA Cup",
   "French Open",
+  "Wimbledon 20",
 ];
 
 // Function to check if a market is sports-related
