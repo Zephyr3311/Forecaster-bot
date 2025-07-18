@@ -16,9 +16,9 @@ import {
 import { syncMarkets } from "./polymarket/markets";
 import { isSportsMarket } from "./utils/blacklist";
 
-const MIN_TOKEN_PERCENTAGE = 9; // 2%
+const MIN_TOKEN_PERCENTAGE = 3; // 2%
 const PORTFOLIO_VALUE = 1526; // $4,000 portfolio value
-const MAX_SLIPPAGE_PERCENTAGE = 3; // 5% max slippage threshold
+const MAX_SLIPPAGE_PERCENTAGE = 50; // 5% max slippage threshold
 const MAX_DAYS = 20; // Max days to look ahead for markets
 
 // Utility functions for retry logic
