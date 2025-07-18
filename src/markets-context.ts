@@ -13,13 +13,37 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
-import { isSportsMarket } from "./utils/blacklist";
 import { syncMarkets } from "./polymarket/markets";
+import { isSportsMarket } from "./utils/blacklist";
 
 const MIN_TOKEN_PERCENTAGE = 5; // 2%
-const PORTFOLIO_VALUE = 4624; // $4,000 portfolio value
+const PORTFOLIO_VALUE = 1526; // $4,000 portfolio value
 const MAX_SLIPPAGE_PERCENTAGE = 3; // 5% max slippage threshold
 const MAX_DAYS = 20; // Max days to look ahead for markets
+
+// Add retry logic with exponential backoff
+async function fetchWithRetry<T>(
+  fetchFn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fetchFn();
+    } catch (error: any) {
+      const is429 = error?.response?.status === 429 || error?.status === 429;
+
+      if (is429 && i < maxRetries) {
+        const delay = baseDelay * Math.pow(2, i);
+        log(`Rate limited, retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db
@@ -35,38 +59,40 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
     while (hasMore) {
       try {
         const query = `
-          query GetTrades($assetId: String!, $usdcId: String!, $first: Int!, $skip: Int!, $fromTs: BigInt!) {
-            orderFilledEvents(
-              where: { ${
-                isMakerSeller
-                  ? "makerAssetId: $assetId, takerAssetId: $usdcId"
-                  : "takerAssetId: $assetId, makerAssetId: $usdcId"
-              }, timestamp_gte: $fromTs },
-              orderBy: timestamp,
-              orderDirection: asc,
-              first: $first,
-              skip: $skip
-            ) {
-              makerAmountFilled
-              takerAmountFilled
-              timestamp
-            }
-          }`;
+         query GetTrades($assetId: String!, $usdcId: String!, $first: Int!, $skip: Int!, $fromTs: BigInt!) {
+           orderFilledEvents(
+             where: { ${
+               isMakerSeller
+                 ? "makerAssetId: $assetId, takerAssetId: $usdcId"
+                 : "takerAssetId: $assetId, makerAssetId: $usdcId"
+             }, timestamp_gte: $fromTs },
+             orderBy: timestamp,
+             orderDirection: asc,
+             first: $first,
+             skip: $skip
+           ) {
+             makerAmountFilled
+             takerAmountFilled
+             timestamp
+           }
+         }`;
 
-        const response = await fetch(SUBGRAPH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query,
-            variables: {
-              assetId: tokenId,
-              usdcId: USDC_ID,
-              first: MAX_RESULTS,
-              skip,
-              fromTs: lastTs.toString(),
-            },
-          }),
-        });
+        const response = await fetchWithRetry(() =>
+          fetch(SUBGRAPH_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query,
+              variables: {
+                assetId: tokenId,
+                usdcId: USDC_ID,
+                first: MAX_RESULTS,
+                skip,
+                fromTs: lastTs.toString(),
+              },
+            }),
+          })
+        );
 
         if (!response.ok) throw new Error(`Query failed: ${response.status}`);
 
@@ -257,8 +283,12 @@ async function collectMarketContext() {
 }
 
 async function main() {
-  await syncMarkets();
-  await collectMarketContext();
+  try {
+    await syncMarkets();
+    await collectMarketContext();
+  } catch (err) {
+    error("Main execution failed:", err);
+  }
 }
 
 main().catch((err) => error(err));
