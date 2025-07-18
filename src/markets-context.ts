@@ -1,4 +1,5 @@
 import "@dotenvx/dotenvx/config";
+import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
 import { and, eq, gte, isNull, lte, max, sql } from "drizzle-orm";
@@ -15,53 +16,12 @@ import {
 } from "./polymarket/constants";
 import { syncMarkets } from "./polymarket/markets";
 import { isSportsMarket } from "./utils/blacklist";
+import { retryWithBackoff } from "./utils/retry";
 
 const MIN_TOKEN_PERCENTAGE = 3; // 2%
 const PORTFOLIO_VALUE = 1526; // $4,000 portfolio value
 const MAX_SLIPPAGE_PERCENTAGE = 50; // 5% max slippage threshold
 const MAX_DAYS = 20; // Max days to look ahead for markets
-
-// Utility functions for retry logic
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 1000
-): Promise<T> {
-  let lastError: Error;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-
-      // Don't retry on certain errors
-      if (
-        error instanceof DOMException &&
-        error.name === "InvalidCharacterError"
-      ) {
-        throw error;
-      }
-
-      if (attempt === maxRetries) {
-        throw lastError;
-      }
-
-      // Calculate delay with exponential backoff + jitter
-      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
-      log(
-        `Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`
-      );
-      await sleep(delay);
-    }
-  }
-
-  throw lastError!;
-}
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db
