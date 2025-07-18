@@ -13,13 +13,55 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
-import { isSportsMarket } from "./utils/blacklist";
 import { syncMarkets } from "./polymarket/markets";
+import { isSportsMarket } from "./utils/blacklist";
 
-const MIN_TOKEN_PERCENTAGE = 5; // 2%
-const PORTFOLIO_VALUE = 4624; // $4,000 portfolio value
+const MIN_TOKEN_PERCENTAGE = 9; // 2%
+const PORTFOLIO_VALUE = 1526; // $4,000 portfolio value
 const MAX_SLIPPAGE_PERCENTAGE = 3; // 5% max slippage threshold
 const MAX_DAYS = 20; // Max days to look ahead for markets
+
+// Utility functions for retry logic
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+
+      // Don't retry on certain errors
+      if (
+        error instanceof DOMException &&
+        error.name === "InvalidCharacterError"
+      ) {
+        throw error;
+      }
+
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+
+      // Calculate delay with exponential backoff + jitter
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+      log(
+        `Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`
+      );
+      await sleep(delay);
+    }
+  }
+
+  throw lastError!;
+}
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
   const lastTs = await db
@@ -34,43 +76,55 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
 
     while (hasMore) {
       try {
-        const query = `
-          query GetTrades($assetId: String!, $usdcId: String!, $first: Int!, $skip: Int!, $fromTs: BigInt!) {
-            orderFilledEvents(
-              where: { ${
-                isMakerSeller
-                  ? "makerAssetId: $assetId, takerAssetId: $usdcId"
-                  : "takerAssetId: $assetId, makerAssetId: $usdcId"
-              }, timestamp_gte: $fromTs },
-              orderBy: timestamp,
-              orderDirection: asc,
-              first: $first,
-              skip: $skip
-            ) {
-              makerAmountFilled
-              takerAmountFilled
-              timestamp
+        const result = await retryWithBackoff(
+          async () => {
+            const query = `
+           query GetTrades($assetId: String!, $usdcId: String!, $first: Int!, $skip: Int!, $fromTs: BigInt!) {
+             orderFilledEvents(
+               where: { ${
+                 isMakerSeller
+                   ? "makerAssetId: $assetId, takerAssetId: $usdcId"
+                   : "takerAssetId: $assetId, makerAssetId: $usdcId"
+               }, timestamp_gte: $fromTs },
+               orderBy: timestamp,
+               orderDirection: asc,
+               first: $first,
+               skip: $skip
+             ) {
+               makerAmountFilled
+               takerAmountFilled
+               timestamp
+             }
+           }`;
+
+            const response = await fetch(SUBGRAPH_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query,
+                variables: {
+                  assetId: tokenId,
+                  usdcId: USDC_ID,
+                  first: MAX_RESULTS,
+                  skip,
+                  fromTs: lastTs.toString(),
+                },
+              }),
+            });
+
+            if (!response.ok) {
+              if (response.status === 429) {
+                throw new Error(`Rate limited: ${response.status}`);
+              }
+              throw new Error(`Query failed: ${response.status}`);
             }
-          }`;
 
-        const response = await fetch(SUBGRAPH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query,
-            variables: {
-              assetId: tokenId,
-              usdcId: USDC_ID,
-              first: MAX_RESULTS,
-              skip,
-              fromTs: lastTs.toString(),
-            },
-          }),
-        });
+            return response.json();
+          },
+          5,
+          2000
+        ); // 5 retries, 2s base delay
 
-        if (!response.ok) throw new Error(`Query failed: ${response.status}`);
-
-        const result = await response.json();
         if (result.errors) throw result.errors;
 
         const events: any[] = result.data?.orderFilledEvents || [];
@@ -113,6 +167,9 @@ async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
 
         skip += events.length;
         hasMore = events.length === MAX_RESULTS;
+
+        // Add small delay between requests to avoid rate limiting
+        await sleep(100);
       } catch (err) {
         error("Error fetching trade history:", err);
         break;
@@ -183,7 +240,14 @@ async function collectMarketContext() {
       for (const token of tokens) {
         if (!token.tokenId || !token.outcome) continue;
 
-        await fetchTradeHistory(token.tokenId, token.outcome);
+        await retryWithBackoff(
+          async () => {
+            await fetchTradeHistory(token.tokenId!, token.outcome!);
+          },
+          3,
+          1000
+        );
+
         const volume = await calculateTokenVolume(token.tokenId);
 
         totalVolume += volume;
@@ -207,6 +271,7 @@ async function collectMarketContext() {
         );
         continue;
       }
+
       marketDataList.push({
         question: market.question,
         description: market.description,
@@ -238,9 +303,15 @@ async function collectMarketContext() {
             new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
         );
 
-      writeFileSync(
-        "./market-context.yml",
-        yamlStringify(groupedMarkets, { indent: 2, lineWidth: 120 })
+      await retryWithBackoff(
+        async () => {
+          writeFileSync(
+            "./market-context.yml",
+            yamlStringify(groupedMarkets, { indent: 2, lineWidth: 120 })
+          );
+        },
+        3,
+        500
       );
 
       log(
@@ -257,8 +328,23 @@ async function collectMarketContext() {
 }
 
 async function main() {
-  await syncMarkets();
-  await collectMarketContext();
+  try {
+    await retryWithBackoff(
+      async () => {
+        await syncMarkets();
+      },
+      3,
+      5000
+    );
+
+    await collectMarketContext();
+  } catch (err) {
+    error("Fatal error in main:", err);
+    process.exit(1);
+  }
 }
 
-main().catch((err) => error(err));
+main().catch((err) => {
+  error("Unhandled error:", err);
+  process.exit(1);
+});
