@@ -1,3 +1,4 @@
+import "@dotenvx/dotenvx/config";
 import { error } from "console";
 import { connect } from "puppeteer-real-browser";
 import { llmArenaNew } from "./puppeteer/llmArena";
