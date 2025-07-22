@@ -1,7 +1,6 @@
 import "@dotenvx/dotenvx/config";
 import { error } from "console";
 import { connect } from "puppeteer-real-browser";
-import { checkWhichLeaderboard, LLM_ARENA_NEW_URL } from "./puppeteer";
 import { llmArenaNew } from "./puppeteer/llmArena";
 
 const main = async () => {
@@ -10,13 +9,7 @@ const main = async () => {
     connectOption: { defaultViewport: null },
   });
 
-  const isNewSiteActive = await checkWhichLeaderboard(page);
-
-  if (!isNewSiteActive) {
-    await llmArenaNew(page, LLM_ARENA_NEW_URL);
-  } else {
-    await llmArenaNew(page, "https://lmarena.ai/leaderboard/text/overall");
-  }
+  await llmArenaNew(page, "https://lmarena.ai/leaderboard/text/overall");
 };
 
 main().catch((err) => {
