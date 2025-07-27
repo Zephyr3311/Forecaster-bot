@@ -26,28 +26,27 @@ export async function llmArenaNew(page: Page, url: string) {
   let sameContentCount = 0;
   const MAX_SAME_CONTENT_COUNT = 3;
 
-  log("🚀 Starting LLM Arena leaderboard monitoring...");
+  log("🚀 LLM Arena monitoring started");
+  log(""); // spacing
 
   while (true) {
     const startTime = Date.now();
-    log(`📡 Fetching leaderboard data from ${url}...`);
 
     const leaderboardData = await page.evaluate(async (url) => {
       try {
-        // Force browser to bypass cache completely
         const cacheBustUrl = `${url}?nocache=${Date.now()}&rand=${Math.random().toString(
           36
         )}`;
 
         const response = await fetch(cacheBustUrl, {
           method: "GET",
-          cache: "no-store", // Most aggressive cache prevention
+          cache: "no-store",
           headers: {
             "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
             Pragma: "no-cache",
             Expires: "0",
-            "If-None-Match": "*", // Prevent ETag caching
-            "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT", // Force fresh request
+            "If-None-Match": "*",
+            "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
           },
         });
 
@@ -56,8 +55,6 @@ export async function llmArenaNew(page: Page, url: string) {
         }
 
         const html = await response.text();
-
-        // Parse the script tag from the fetched HTML
         const doc = new DOMParser().parseFromString(html, "text/html");
         const scripts = Array.from(doc.scripts);
 
@@ -79,10 +76,9 @@ export async function llmArenaNew(page: Page, url: string) {
           data: parsedData,
           htmlSize: html.length,
           timestamp: Date.now(),
-          htmlContent: html, // Include full HTML for hashing
+          htmlContent: html,
         };
       } catch (err) {
-        // Don't log to browser console, return error info instead
         return {
           error: err instanceof Error ? err.message : String(err),
           timestamp: Date.now(),
@@ -91,11 +87,10 @@ export async function llmArenaNew(page: Page, url: string) {
     }, url);
 
     const fetchTime = Date.now() - startTime;
-    log(`⏱️  Fetch completed in ${fetchTime}ms`);
 
     // Check for errors
     if (leaderboardData && "error" in leaderboardData) {
-      log(`❌ Error fetching leaderboard: ${leaderboardData.error}`);
+      log(`❌ Error: ${leaderboardData.error}`);
       continue;
     }
 
@@ -106,14 +101,13 @@ export async function llmArenaNew(page: Page, url: string) {
       !leaderboardData.data?.leaderboards
     ) {
       emptyLeaderboardCount++;
-      log(`⚠️  Empty leaderboard returned (${emptyLeaderboardCount}/10)`);
+      log(`⚠️ Empty data (${emptyLeaderboardCount}/10)`);
       if (emptyLeaderboardCount >= 10) {
-        log(
-          "🔄 Received 10 consecutive empty leaderboards, restarting VPN container..."
-        );
+        log("🔄 Restarting VPN...");
         await restartContainer(VPN_CONATAINER_NAME);
         await gracefulShutdown();
       }
+      continue;
     }
 
     // Create hash of HTML content for comparison
@@ -121,58 +115,41 @@ export async function llmArenaNew(page: Page, url: string) {
       .update(leaderboardData.htmlContent || "")
       .digest("hex");
 
-    const currentHtmlSize = leaderboardData.htmlSize;
+    const hashShort = currentHtmlHash.substring(0, 8);
 
-    log(`📊 Content hash: ${currentHtmlHash.substring(0, 8)}...`);
-    log(`📏 HTML size: ${currentHtmlSize.toLocaleString()} bytes`);
-
-    // Check if we're getting cached responses (same content)
+    // Check if we're getting cached responses
     if (currentHtmlHash === lastHtmlHash && lastHtmlHash !== "") {
       sameContentCount++;
       log(
-        `🔄 Same content detected (hash: ${currentHtmlHash.substring(
-          0,
-          8
-        )}...) - attempt ${sameContentCount}/${MAX_SAME_CONTENT_COUNT}`
+        `🔄 Cached (${hashShort}) ${sameContentCount}/${MAX_SAME_CONTENT_COUNT}`
       );
 
       if (sameContentCount >= MAX_SAME_CONTENT_COUNT) {
-        log("🚨 Detected cached responses, forcing page refresh...");
-        // Force a hard refresh of the page itself
+        log("🚨 Forcing refresh...");
         await page.goto(url, {
           waitUntil: "networkidle2",
           timeout: 30000,
         });
         sameContentCount = 0;
         lastHtmlHash = "";
+        log(""); // spacing after refresh
         continue;
       }
     } else {
       sameContentCount = 0;
       lastHtmlHash = currentHtmlHash;
-      log(
-        `✅ Fresh content received (${currentHtmlSize.toLocaleString()} bytes, hash: ${currentHtmlHash.substring(
-          0,
-          8
-        )}...)`
-      );
     }
 
-    const llmLeaderboard: (typeof llmLeaderboardSchema.$inferInsert)[] = [];
     const styleControlLeaderboard = leaderboardData.data.leaderboards.find(
       (lb: any) => lb.leaderboardType === LeaderboardType.RemoveStyleControl
     );
 
     if (!styleControlLeaderboard) {
-      log("⚠️  StyleControl leaderboard not found in data");
+      log("⚠️ No StyleControl data");
       continue;
     }
 
-    log(
-      `📋 Found StyleControl leaderboard with ${
-        styleControlLeaderboard.entries?.length || 0
-      } entries`
-    );
+    const llmLeaderboard: (typeof llmLeaderboardSchema.$inferInsert)[] = [];
 
     if (styleControlLeaderboard?.entries) {
       styleControlLeaderboard.entries.forEach((entry: any, index: number) => {
@@ -191,13 +168,6 @@ export async function llmArenaNew(page: Page, url: string) {
         llmLeaderboard.push(
           leaderboardEntry as unknown as typeof llmLeaderboardSchema.$inferInsert
         );
-
-        // Log top 3 entries for monitoring
-        if (index < 3) {
-          log(
-            `🏆 #${entry.rank}: ${entry.modelName} (${entry.modelOrganization}) - Score: ${entry.score}`
-          );
-        }
       });
     }
 
@@ -206,8 +176,6 @@ export async function llmArenaNew(page: Page, url: string) {
       const uniqueEntries = Array.from(
         new Map(llmLeaderboard.map((item) => [item.modelName, item])).values()
       );
-
-      log(`💾 Saving ${uniqueEntries.length} unique entries to database...`);
 
       try {
         writeFileSync(LEADERBOARD_FILE, JSON.stringify(uniqueEntries, null, 2));
@@ -220,18 +188,29 @@ export async function llmArenaNew(page: Page, url: string) {
             set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
           });
 
+        // Show top 3 models inline
+        const top3 = styleControlLeaderboard.entries.slice(0, 3);
+        const topModels = top3
+          .map(
+            (entry: any, i: number) =>
+              `#${i + 1} ${entry.modelOrganization}(${entry.score})`
+          )
+          .join(" | ");
+
         log(
-          `✅ ${dayjs().format(
-            "DD-MM-YYYY HH:mm:ss"
-          )} - Leaderboard updated successfully with ${
-            llmLeaderboard.length
-          } entries`
+          `✅ ${dayjs().format("HH:mm:ss")} | ${
+            uniqueEntries.length
+          } entries | ${hashShort} | ${fetchTime}ms`
         );
+        log(`🏆 ${topModels}`);
+        log(""); // spacing after update
       } catch (error) {
-        log(`❌ Error saving to database: ${error}`);
+        log(`❌ DB error: ${error}`);
       }
     } else {
-      log("⚠️  No leaderboard entries to process");
+      log("⚠️ No entries to process");
     }
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
   }
 }
