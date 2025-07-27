@@ -31,7 +31,7 @@ export async function llmArenaNew(page: Page, url: string) {
   const MAX_SAME_CONTENT_COUNT = 3;
 
   log("🚀 LLM Arena monitoring started");
-  log(""); // spacing
+  log("");
 
   while (true) {
     const startTime = Date.now();
@@ -136,7 +136,7 @@ export async function llmArenaNew(page: Page, url: string) {
         });
         sameContentCount = 0;
         lastHtmlHash = "";
-        log(""); // spacing after refresh
+        log("");
         continue;
       }
     } else {
