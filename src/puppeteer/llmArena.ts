@@ -58,17 +58,14 @@ export async function llmArenaNew(page: Page, url: string) {
         const html = await response.text();
 
         // Parse the script tag from the fetched HTML
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, "text/html");
+        const doc = new DOMParser().parseFromString(html, "text/html");
         const scripts = Array.from(doc.scripts);
 
         const s = scripts.find((s) =>
           s.textContent?.includes("StyleControl")
         )?.textContent;
 
-        if (!s) {
-          throw new Error("StyleControl script not found");
-        }
+        if (!s) throw new Error("StyleControl script not found");
 
         const j = s
           ?.slice(s.indexOf('"') + 1, s.lastIndexOf('"'))
