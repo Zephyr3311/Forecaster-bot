@@ -81,20 +81,27 @@ export async function llmArenaNew(page: Page, url: string) {
           try {
             const metadata: Record<string, string | undefined> = {};
 
-            // Extract Last Updated
-            const lastUpdatedMatch = html.match(/Last Updated[^>]*>([^<]+)</i);
+            // More flexible regex patterns that account for HTML structure
+            // Look for "Last Updated" followed by any HTML content until we find the actual date
+            const lastUpdatedMatch = html.match(
+              /Last Updated[\s\S]*?<p[^>]*>([^<]+)<\/p>/i
+            );
             if (lastUpdatedMatch) {
               metadata.last_updated = lastUpdatedMatch[1]?.trim();
             }
 
-            // Extract Total Votes
-            const totalVotesMatch = html.match(/Total Votes[^>]*>([^<]+)</i);
+            // Look for "Total Votes" followed by any HTML content until we find the number
+            const totalVotesMatch = html.match(
+              /Total Votes[\s\S]*?<p[^>]*>([\d,]+)<\/p>/i
+            );
             if (totalVotesMatch) {
               metadata.total_votes = totalVotesMatch[1]?.trim();
             }
 
-            // Extract Total Models
-            const totalModelsMatch = html.match(/Total Models[^>]*>([^<]+)</i);
+            // Look for "Total Models" followed by any HTML content until we find the number
+            const totalModelsMatch = html.match(
+              /Total Models[\s\S]*?<p[^>]*>(\d+)<\/p>/i
+            );
             if (totalModelsMatch) {
               metadata.total_models = totalModelsMatch[1]?.trim();
             }
