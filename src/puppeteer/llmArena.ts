@@ -38,20 +38,21 @@ export async function llmArenaNew(page: Page, url: string) {
 
     const leaderboardData = await page.evaluate(async (url) => {
       try {
-        const cacheBustUrl = `${url}?nocache=${Date.now()}&rand=${Math.random().toString(
-          36
-        )}`;
-
+        // const cacheBustUrl = `${url}?nocache=${Date.now()}&rand=${Math.random().toString(
+        //   36
+        // )}`;
+        const cacheBustUrl = url;
+        
         const response = await fetch(cacheBustUrl, {
           method: "GET",
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-            Pragma: "no-cache",
-            Expires: "0",
-            "If-None-Match": "*",
-            "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
-          },
+          // cache: "no-store",
+          // headers: {
+          //   "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+          //   Pragma: "no-cache",
+          //   Expires: "0",
+          //   "If-None-Match": "*",
+          //   "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
+          // },
         });
 
         if (!response.ok) {
