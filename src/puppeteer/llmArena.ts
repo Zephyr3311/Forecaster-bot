@@ -296,7 +296,7 @@ export async function llmArenaNew(page: Page, url: string) {
               100
             ).toFixed(1)}% | Avg cycle: ${avgCycleTime.toFixed(
               0
-            )}ms | ${metadataStr}`
+            )}ms${metadataStr}`
           );
         }
 
