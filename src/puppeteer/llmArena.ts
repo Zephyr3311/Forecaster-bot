@@ -124,7 +124,6 @@ export async function llmArenaNew(page: Page, url: string) {
         return {
           data: parsedData,
           metadata: parseMetadata(),
-          htmlSize: html.length,
           timestamp: Date.now(),
           htmlContent: html,
         };
@@ -277,15 +276,10 @@ export async function llmArenaNew(page: Page, url: string) {
           } | ${total_models || "N/A"}`;
         }
 
-        // Log with runtime stats
-        const runtimeStats = ` | Uptime: ${formatUptime(
-          currentUptime
-        )} | Updates: ${successfulUpdates}/${cycleCount}`;
-
         log(
           `✅ ${dayjs().format("HH:mm:ss")} | ${
             uniqueEntries.length
-          } entries | ${hashShort} | ${fetchTime}ms${metadataStr}${runtimeStats}`,
+          } entries | ${hashShort} | ${fetchTime}ms`,
           `🏆 ${topModels}`
         );
 
@@ -296,7 +290,9 @@ export async function llmArenaNew(page: Page, url: string) {
             `📊 Runtime: ${formatUptime(currentUptime)} | Success rate: ${(
               (successfulUpdates / cycleCount) *
               100
-            ).toFixed(1)}% | Avg cycle: ${avgCycleTime.toFixed(0)}ms`
+            ).toFixed(1)}% | Avg cycle: ${avgCycleTime.toFixed(
+              0
+            )}ms | ${metadataStr}`
           );
         }
 
