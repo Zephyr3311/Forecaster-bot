@@ -146,11 +146,21 @@ export async function llmArenaNew(page: Page, url: string) {
 
     // Check for errors
     if (leaderboardData && "error" in leaderboardData) {
+      emptyLeaderboardCount++; // Add this line
       log(
-        `❌ Error: ${leaderboardData.error} | Uptime: ${formatUptime(
+        `❌ Error: ${
+          leaderboardData.error
+        } (${emptyLeaderboardCount}/10) | Uptime: ${formatUptime(
           currentUptime
         )} | Cycle: ${cycleCount}`
       );
+
+      if (emptyLeaderboardCount >= 10) {
+        log("🔄 Restarting VPN...");
+        await restartContainer(VPN_CONATAINER_NAME);
+        await gracefulShutdown();
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 500));
       continue;
     }
