@@ -95,6 +95,7 @@ export async function llmArenaNew(page: Page, url: string) {
     // Check for errors
     if (leaderboardData && "error" in leaderboardData) {
       log(`❌ Error: ${leaderboardData.error}`);
+      await new Promise((resolve) => setTimeout(resolve, 400));
       continue;
     }
 
