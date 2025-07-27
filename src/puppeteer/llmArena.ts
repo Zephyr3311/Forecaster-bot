@@ -151,7 +151,7 @@ export async function llmArenaNew(page: Page, url: string) {
           currentUptime
         )} | Cycle: ${cycleCount}`
       );
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       continue;
     }
 
@@ -172,7 +172,6 @@ export async function llmArenaNew(page: Page, url: string) {
         await restartContainer(VPN_CONATAINER_NAME);
         await gracefulShutdown();
       }
-      await new Promise((resolve) => setTimeout(resolve, 3500));
       continue;
     }
 
@@ -203,7 +202,6 @@ export async function llmArenaNew(page: Page, url: string) {
         log("");
         continue;
       }
-      await new Promise((resolve) => setTimeout(resolve, 2000));
       continue;
     } else {
       sameContentCount = 0;
@@ -221,7 +219,6 @@ export async function llmArenaNew(page: Page, url: string) {
           currentUptime
         )} | Cycle: ${cycleCount}`
       );
-      await new Promise((resolve) => setTimeout(resolve, 2000));
       continue;
     }
 
@@ -318,7 +315,5 @@ export async function llmArenaNew(page: Page, url: string) {
         )} | Cycle: ${cycleCount}`
       );
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 400));
   }
 }
