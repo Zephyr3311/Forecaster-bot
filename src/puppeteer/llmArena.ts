@@ -18,7 +18,23 @@ import {
 } from "../types/llmArena";
 import { extractModelName } from "../utils";
 
+function formatUptime(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
 export async function llmArenaNew(page: Page, url: string) {
+  const startupTime = Date.now();
+  let cycleCount = 0;
+  let successfulUpdates = 0;
+
   setInterval(
     () => page.screenshot({ path: "./stream/page.jpg" }).catch(() => {}),
     1000
@@ -30,26 +46,30 @@ export async function llmArenaNew(page: Page, url: string) {
   let sameContentCount = 0;
   const MAX_SAME_CONTENT_COUNT = 3;
 
+  log("🚀 LLM Arena monitoring started");
+  log("");
+
   while (true) {
+    cycleCount++;
+    const currentUptime = Date.now() - startupTime;
     const startTime = Date.now();
 
     const leaderboardData = await page.evaluate(async (url) => {
       try {
-        // const cacheBustUrl = `${url}?nocache=${Date.now()}&rand=${Math.random().toString(
-        //   36
-        // )}`;
-        const cacheBustUrl = url;
+        const cacheBustUrl = `${url}?nocache=${Date.now()}&rand=${Math.random().toString(
+          36
+        )}`;
 
         const response = await fetch(cacheBustUrl, {
           method: "GET",
-          // cache: "no-store",
-          // headers: {
-          //   "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-          //   Pragma: "no-cache",
-          //   Expires: "0",
-          //   "If-None-Match": "*",
-          //   "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
-          // },
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            Pragma: "no-cache",
+            Expires: "0",
+            "If-None-Match": "*",
+            "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
+          },
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -120,7 +140,11 @@ export async function llmArenaNew(page: Page, url: string) {
 
     // Check for errors
     if (leaderboardData && "error" in leaderboardData) {
-      log(`❌ Error: ${leaderboardData.error}`);
+      log(
+        `❌ Error: ${leaderboardData.error} | Uptime: ${formatUptime(
+          currentUptime
+        )} | Cycle: ${cycleCount}`
+      );
       await new Promise((resolve) => setTimeout(resolve, 5000));
       continue;
     }
@@ -132,7 +156,11 @@ export async function llmArenaNew(page: Page, url: string) {
       !leaderboardData.data?.leaderboards
     ) {
       emptyLeaderboardCount++;
-      log(`⚠️ Empty data (${emptyLeaderboardCount}/10)`);
+      log(
+        `⚠️ Empty data (${emptyLeaderboardCount}/10) | Uptime: ${formatUptime(
+          currentUptime
+        )} | Cycle: ${cycleCount}`
+      );
       if (emptyLeaderboardCount >= 10) {
         log("🔄 Restarting VPN...");
         await restartContainer(VPN_CONATAINER_NAME);
@@ -153,7 +181,9 @@ export async function llmArenaNew(page: Page, url: string) {
     if (currentHtmlHash === lastHtmlHash && lastHtmlHash !== "") {
       sameContentCount++;
       log(
-        `🔄 Cached (${hashShort}) ${sameContentCount}/${MAX_SAME_CONTENT_COUNT}`
+        `🔄 Cached (${hashShort}) ${sameContentCount}/${MAX_SAME_CONTENT_COUNT} | Uptime: ${formatUptime(
+          currentUptime
+        )} | Cycle: ${cycleCount}`
       );
 
       if (sameContentCount >= MAX_SAME_CONTENT_COUNT) {
@@ -180,7 +210,11 @@ export async function llmArenaNew(page: Page, url: string) {
     );
 
     if (!styleControlLeaderboard) {
-      log("⚠️ No StyleControl data");
+      log(
+        `⚠️ No StyleControl data | Uptime: ${formatUptime(
+          currentUptime
+        )} | Cycle: ${cycleCount}`
+      );
       await new Promise((resolve) => setTimeout(resolve, 2000));
       continue;
     }
@@ -209,6 +243,7 @@ export async function llmArenaNew(page: Page, url: string) {
 
     if (llmLeaderboard.length) {
       emptyLeaderboardCount = 0;
+      successfulUpdates++;
       const uniqueEntries = Array.from(
         new Map(llmLeaderboard.map((item) => [item.modelName, item])).values()
       );
@@ -242,18 +277,43 @@ export async function llmArenaNew(page: Page, url: string) {
           } | ${total_models || "N/A"}`;
         }
 
+        // Log with runtime stats
+        const runtimeStats = ` | Uptime: ${formatUptime(
+          currentUptime
+        )} | Updates: ${successfulUpdates}/${cycleCount}`;
+
         log(
           `✅ ${dayjs().format("HH:mm:ss")} | ${
             uniqueEntries.length
-          } entries | ${hashShort} | ${fetchTime}ms${metadataStr}`
+          } entries | ${hashShort} | ${fetchTime}ms${metadataStr}${runtimeStats}`,
+          `🏆 ${topModels}`
         );
-        log(`🏆 ${topModels}`);
+
+        // Show runtime summary every 10 successful updates
+        if (successfulUpdates % 10 === 0) {
+          const avgCycleTime = currentUptime / cycleCount;
+          log(
+            `📊 Runtime: ${formatUptime(currentUptime)} | Success rate: ${(
+              (successfulUpdates / cycleCount) *
+              100
+            ).toFixed(1)}% | Avg cycle: ${avgCycleTime.toFixed(0)}ms`
+          );
+        }
+
         log("");
       } catch (error) {
-        log(`❌ DB error: ${error}`);
+        log(
+          `❌ DB error: ${error} | Uptime: ${formatUptime(
+            currentUptime
+          )} | Cycle: ${cycleCount}`
+        );
       }
     } else {
-      log("⚠️ No entries to process");
+      log(
+        `⚠️ No entries to process | Uptime: ${formatUptime(
+          currentUptime
+        )} | Cycle: ${cycleCount}`
+      );
     }
 
     await new Promise((resolve) => setTimeout(resolve, 400));
