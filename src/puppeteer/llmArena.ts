@@ -11,7 +11,11 @@ import {
 } from ".";
 import { conflictUpdateAllExcept, db } from "../db";
 import { llmLeaderboardSchema } from "../db/schema";
-import { LeaderboardType } from "../types/llmArena";
+import {
+  LeaderboardType,
+  type Entry,
+  type LlmAreenaLeaderboard,
+} from "../types/llmArena";
 import { extractModelName } from "../utils";
 
 export async function llmArenaNew(page: Page, url: string) {
@@ -141,7 +145,8 @@ export async function llmArenaNew(page: Page, url: string) {
     }
 
     const styleControlLeaderboard = leaderboardData.data.leaderboards.find(
-      (lb: any) => lb.leaderboardType === LeaderboardType.RemoveStyleControl
+      (lb: LlmAreenaLeaderboard) =>
+        lb.leaderboardType === LeaderboardType.RemoveStyleControl
     );
 
     if (!styleControlLeaderboard) {
@@ -152,7 +157,7 @@ export async function llmArenaNew(page: Page, url: string) {
     const llmLeaderboard: (typeof llmLeaderboardSchema.$inferInsert)[] = [];
 
     if (styleControlLeaderboard?.entries) {
-      styleControlLeaderboard.entries.forEach((entry: any, index: number) => {
+      styleControlLeaderboard.entries.forEach((entry: Entry) => {
         const leaderboardEntry = {
           rankUb: entry.rank.toString(),
           model: entry.modelName,
@@ -192,7 +197,7 @@ export async function llmArenaNew(page: Page, url: string) {
         const top3 = styleControlLeaderboard.entries.slice(0, 3);
         const topModels = top3
           .map(
-            (entry: any, i: number) =>
+            (entry: Entry, i: number) =>
               `#${i + 1} ${entry.modelOrganization}(${entry.score})`
           )
           .join(" | ");
