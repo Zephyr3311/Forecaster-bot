@@ -30,9 +30,6 @@ export async function llmArenaNew(page: Page, url: string) {
   let sameContentCount = 0;
   const MAX_SAME_CONTENT_COUNT = 3;
 
-  log("🚀 LLM Arena monitoring started");
-  log("");
-
   while (true) {
     const startTime = Date.now();
 
@@ -42,7 +39,7 @@ export async function llmArenaNew(page: Page, url: string) {
         //   36
         // )}`;
         const cacheBustUrl = url;
-        
+
         const response = await fetch(cacheBustUrl, {
           method: "GET",
           // cache: "no-store",
@@ -55,14 +52,41 @@ export async function llmArenaNew(page: Page, url: string) {
           // },
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const html = await response.text();
+
+        // Parse metadata using regex
+        const parseMetadata = () => {
+          try {
+            const metadata: Record<string, string | undefined> = {};
+
+            // Extract Last Updated
+            const lastUpdatedMatch = html.match(/Last Updated[^>]*>([^<]+)</i);
+            if (lastUpdatedMatch) {
+              metadata.last_updated = lastUpdatedMatch[1]?.trim();
+            }
+
+            // Extract Total Votes
+            const totalVotesMatch = html.match(/Total Votes[^>]*>([^<]+)</i);
+            if (totalVotesMatch) {
+              metadata.total_votes = totalVotesMatch[1]?.trim();
+            }
+
+            // Extract Total Models
+            const totalModelsMatch = html.match(/Total Models[^>]*>([^<]+)</i);
+            if (totalModelsMatch) {
+              metadata.total_models = totalModelsMatch[1]?.trim();
+            }
+
+            return Object.keys(metadata).length > 0 ? metadata : null;
+          } catch (err) {
+            return null; // Fail silently if metadata parsing fails
+          }
+        };
+
         const doc = new DOMParser().parseFromString(html, "text/html");
         const scripts = Array.from(doc.scripts);
-
         const s = scripts.find((s) =>
           s.textContent?.includes("StyleControl")
         )?.textContent;
@@ -79,6 +103,7 @@ export async function llmArenaNew(page: Page, url: string) {
 
         return {
           data: parsedData,
+          metadata: parseMetadata(),
           htmlSize: html.length,
           timestamp: Date.now(),
           htmlContent: html,
@@ -96,7 +121,7 @@ export async function llmArenaNew(page: Page, url: string) {
     // Check for errors
     if (leaderboardData && "error" in leaderboardData) {
       log(`❌ Error: ${leaderboardData.error}`);
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       continue;
     }
 
@@ -113,6 +138,7 @@ export async function llmArenaNew(page: Page, url: string) {
         await restartContainer(VPN_CONATAINER_NAME);
         await gracefulShutdown();
       }
+      await new Promise((resolve) => setTimeout(resolve, 3500));
       continue;
     }
 
@@ -141,6 +167,8 @@ export async function llmArenaNew(page: Page, url: string) {
         log("");
         continue;
       }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      continue;
     } else {
       sameContentCount = 0;
       lastHtmlHash = currentHtmlHash;
@@ -153,6 +181,7 @@ export async function llmArenaNew(page: Page, url: string) {
 
     if (!styleControlLeaderboard) {
       log("⚠️ No StyleControl data");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       continue;
     }
 
@@ -204,13 +233,22 @@ export async function llmArenaNew(page: Page, url: string) {
           )
           .join(" | ");
 
+        let metadataStr = "";
+        if (leaderboardData.metadata) {
+          const { last_updated, total_votes, total_models } =
+            leaderboardData.metadata;
+          metadataStr = ` | ${last_updated || "N/A"} | ${
+            total_votes || "N/A"
+          } | ${total_models || "N/A"}`;
+        }
+
         log(
           `✅ ${dayjs().format("HH:mm:ss")} | ${
             uniqueEntries.length
-          } entries | ${hashShort} | ${fetchTime}ms`,
-          `🏆 ${topModels}`
+          } entries | ${hashShort} | ${fetchTime}ms${metadataStr}`
         );
-        log(""); // spacing after update
+        log(`🏆 ${topModels}`);
+        log("");
       } catch (error) {
         log(`❌ DB error: ${error}`);
       }
