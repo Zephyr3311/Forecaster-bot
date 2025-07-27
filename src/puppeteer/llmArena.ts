@@ -206,9 +206,9 @@ export async function llmArenaNew(page: Page, url: string) {
         log(
           `✅ ${dayjs().format("HH:mm:ss")} | ${
             uniqueEntries.length
-          } entries | ${hashShort} | ${fetchTime}ms`
+          } entries | ${hashShort} | ${fetchTime}ms`,
+          `🏆 ${topModels}`
         );
-        log(`🏆 ${topModels}`);
         log(""); // spacing after update
       } catch (error) {
         log(`❌ DB error: ${error}`);
