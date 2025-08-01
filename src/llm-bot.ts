@@ -63,7 +63,7 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
       .then((results) => results[0]);
 
     const slugMatch = market?.marketSlug.match(
-      /will-([^-]+)-have-the-top-ai-model/
+      /will-([^-]+)-have-the-top-ai-model-on-/
     );
     if (slugMatch && slugMatch[1]) {
       portfolioState.currentModelOrg = slugMatch[1].toLowerCase();
