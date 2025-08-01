@@ -43,7 +43,10 @@ export const marketSchema = pgTable("market", {
 
   // Configuration
   enableOrderBook: boolean("enable_order_book").default(true),
-  minimumOrderSize: integer("minimum_order_size").default(5),
+  minimumOrderSize: decimal("minimum_order_size", {
+    precision: 10,
+    scale: 2,
+  }).default("5.00"),
   minimumTickSize: decimal("minimum_tick_size", {
     precision: 10,
     scale: 6,

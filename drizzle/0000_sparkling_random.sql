@@ -27,7 +27,7 @@ CREATE TABLE "market" (
 	"archived" boolean DEFAULT false,
 	"accepting_orders" boolean DEFAULT true,
 	"enable_order_book" boolean DEFAULT true,
-	"minimum_order_size" integer DEFAULT 5,
+	"minimum_order_size" numeric(10, 2) DEFAULT '5.00',
 	"minimum_tick_size" numeric(10, 6) DEFAULT '0.01',
 	"accepting_order_timestamp" timestamp,
 	"end_date_iso" timestamp,

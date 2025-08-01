@@ -282,14 +282,12 @@ async function runCycle(assetIds: string[]): Promise<void> {
   }
 }
 
-// Main function
 async function main(): Promise<void> {
   let trades = await portfolioState.clobClient.getTrades();
   let assetIds = extractAssetIdsFromTrades(trades);
   await initializeCurrentPosition(assetIds);
 
   while (true) {
-    // Make sure to run the checkAndClaimResolvedMarkets function
     await checkAndClaimResolvedMarkets(assetIds);
 
     await runCycle(assetIds);

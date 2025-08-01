@@ -165,7 +165,7 @@ export async function upsertMarkets(marketsList: Market[]) {
               archived: market.archived,
               acceptingOrders: market.accepting_orders,
               enableOrderBook: market.enable_order_book,
-              minimumOrderSize: market.minimum_order_size,
+              minimumOrderSize: market.minimum_order_size.toString(),
               minimumTickSize: String(market.minimum_tick_size),
               acceptingOrderTimestamp: market.accepting_order_timestamp
                 ? new Date(market.accepting_order_timestamp)

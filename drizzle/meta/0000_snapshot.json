@@ -1,5 +1,5 @@
 {
-  "id": "ea277f53-1c78-4c16-a929-f96f9115640c",
+  "id": "b29dcc1f-45db-4d38-857d-c17e958a0587",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -183,10 +183,10 @@
         },
         "minimum_order_size": {
           "name": "minimum_order_size",
-          "type": "integer",
+          "type": "numeric(10, 2)",
           "primaryKey": false,
           "notNull": false,
-          "default": 5
+          "default": "'5.00'"
         },
         "minimum_tick_size": {
           "name": "minimum_tick_size",
