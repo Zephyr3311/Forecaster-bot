@@ -1,11 +1,13 @@
 import { log } from "console";
 import { getTableColumns, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/bun-sql";
-import { migrate } from "drizzle-orm/bun-sql/migrator";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { resolve } from "path";
+import postgres from "postgres";
 
-export const db = drizzle(process.env.DATABASE_URL!);
+const connection = postgres(process.env.DATABASE_URL!);
+export const db = drizzle(connection);
 
 export function conflictUpdateAllExcept<
   T extends PgTable,
