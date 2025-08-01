@@ -225,7 +225,7 @@ async function runCycle(assetIds: string[]): Promise<void> {
       `🚨 Top model changed to ${topModel.modelName} (${topModel.organization})`
     );
 
-    const currentMonth = dayjs().format("MMM").toLowerCase();
+    const currentMonth = dayjs().format("MMMM").toLowerCase();
     const market = await db
       .select()
       .from(marketSchema)
@@ -233,15 +233,13 @@ async function runCycle(assetIds: string[]): Promise<void> {
         and(
           ilike(
             marketSchema.marketSlug,
-            `%-have-the-top-ai-model-on-${currentMonth}%`
+            `will-${topModelOrg}-have-the-top-ai-model-on-${currentMonth}-%`
           ),
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false)
         )
       )
-      .then((markets) =>
-        markets.find((m) => m.question.toLowerCase().includes(topModelOrg))
-      );
+      .then((markets) => markets[0]);
 
     if (!market) {
       log(`No market found for ${topModel.organization}`);
