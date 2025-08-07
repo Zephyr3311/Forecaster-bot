@@ -1,5 +1,5 @@
 {
-  "id": "b29dcc1f-45db-4d38-857d-c17e958a0587",
+  "id": "a85ba776-80b3-4905-86ed-7a0b021095b2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,56 +14,26 @@
           "primaryKey": true,
           "notNull": true
         },
-        "rank_ub": {
-          "name": "rank_ub",
+        "rank": {
+          "name": "rank",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "rank_style_ctrl": {
-          "name": "rank_style_ctrl",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "model": {
-          "name": "model",
+        "model_display_name": {
+          "name": "model_display_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "model_name": {
-          "name": "model_name",
-          "type": "text",
+        "rating": {
+          "name": "rating",
+          "type": "numeric(10, 2)",
           "primaryKey": false,
           "notNull": true
         },
-        "arena_score": {
-          "name": "arena_score",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ci": {
-          "name": "ci",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "votes": {
-          "name": "votes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "organization": {
-          "name": "organization",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "license": {
-          "name": "license",
+        "model_organization": {
+          "name": "model_organization",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -87,18 +57,11 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "llm_leaderboard_model_unique": {
-          "name": "llm_leaderboard_model_unique",
+        "llm_leaderboard_model_display_name_unique": {
+          "name": "llm_leaderboard_model_display_name_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "model"
-          ]
-        },
-        "llm_leaderboard_model_name_unique": {
-          "name": "llm_leaderboard_model_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "model_name"
+            "model_display_name"
           ]
         }
       },

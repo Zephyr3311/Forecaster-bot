@@ -68,22 +68,16 @@ export interface LlmAreenaLeaderboard {
 }
 
 export interface Entry {
-  id: string;
-  leaderboardId: string;
-  modelName: string;
-  modelOrganization: string;
-  modelUrl: string;
-  license: string;
-  score: number;
-  votes: number;
-  confidenceIntervalLower: number;
-  confidenceIntervalUpper: number;
-  metadata: null;
-  isDeprecated: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  rank: number;
-  rankStyleControl?: number;
+    rank:              number;
+    rankStyleControl:  number;
+    modelDisplayName:  string;
+    rating:            number;
+    ratingUpper:       number;
+    ratingLower:       number;
+    votes:             number;
+    modelOrganization: string;
+    modelUrl:          string;
+    license:           string;
 }
 
 export interface IconClass {

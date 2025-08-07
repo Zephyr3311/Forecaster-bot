@@ -1,18 +1,12 @@
 CREATE TABLE "llm_leaderboard" (
 	"id" serial PRIMARY KEY NOT NULL,
-	"rank_ub" integer NOT NULL,
-	"rank_style_ctrl" integer,
-	"model" text NOT NULL,
-	"model_name" text NOT NULL,
-	"arena_score" integer NOT NULL,
-	"ci" text NOT NULL,
-	"votes" integer NOT NULL,
-	"organization" text NOT NULL,
-	"license" text NOT NULL,
+	"rank" integer NOT NULL,
+	"model_display_name" text NOT NULL,
+	"rating" numeric(10, 2) NOT NULL,
+	"model_organization" text NOT NULL,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now(),
-	CONSTRAINT "llm_leaderboard_model_unique" UNIQUE("model"),
-	CONSTRAINT "llm_leaderboard_model_name_unique" UNIQUE("model_name")
+	CONSTRAINT "llm_leaderboard_model_display_name_unique" UNIQUE("model_display_name")
 );
 --> statement-breakpoint
 CREATE TABLE "market" (

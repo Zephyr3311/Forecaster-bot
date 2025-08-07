@@ -11,12 +11,7 @@ import {
 } from ".";
 import { conflictUpdateAllExcept, db } from "../db";
 import { llmLeaderboardSchema } from "../db/schema";
-import {
-  LeaderboardType,
-  type Entry,
-  type LlmAreenaLeaderboard,
-} from "../types/llmArena";
-import { extractModelName } from "../utils";
+import { type Entry } from "../types/llmArena";
 
 function formatUptime(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -45,6 +40,7 @@ export async function llmArenaNew(page: Page, url: string) {
   let lastHtmlHash = "";
   let sameContentCount = 0;
   const MAX_SAME_CONTENT_COUNT = 3;
+  const MAX_RETRIES = 30;
 
   log("🚀 LLM Arena monitoring started");
   log("");
@@ -54,79 +50,68 @@ export async function llmArenaNew(page: Page, url: string) {
     const currentUptime = Date.now() - startupTime;
     const startTime = Date.now();
 
+    // await sleep(100000); // Wait 1 second before each cycle
     const leaderboardData = await page.evaluate(async (url) => {
       try {
-        const cacheBustUrl = `${url}?nocache=${Date.now()}&rand=${Math.random().toString(
-          36
-        )}`;
-
-        const response = await fetch(cacheBustUrl, {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-            Pragma: "no-cache",
-            Expires: "0",
-            "If-None-Match": "*",
-            "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
-          },
-        });
+        const response = await fetch(
+          `${url}?nocache=${Date.now()}&rand=${Math.random().toString(36)}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+              Pragma: "no-cache",
+              Expires: "0",
+              "If-None-Match": "*",
+              "If-Modified-Since": "Thu, 01 Jan 1970 00:00:00 GMT",
+            },
+          }
+        );
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const html = await response.text();
-
-        // Parse metadata using regex
-        const parseMetadata = () => {
-          try {
-            const metadata: Record<string, string | undefined> = {};
-
-            // More flexible regex patterns that account for HTML structure
-            // Look for "Last Updated" followed by any HTML content until we find the actual date
-            const lastUpdatedMatch = html.match(
-              /Last Updated[\s\S]*?<p[^>]*>([^<]+)<\/p>/i
-            );
-            if (lastUpdatedMatch) {
-              metadata.last_updated = lastUpdatedMatch[1]?.trim();
-            }
-
-            // Look for "Total Votes" followed by any HTML content until we find the number
-            const totalVotesMatch = html.match(
-              /Total Votes[\s\S]*?<p[^>]*>([\d,]+)<\/p>/i
-            );
-            if (totalVotesMatch) {
-              metadata.total_votes = totalVotesMatch[1]?.trim();
-            }
-
-            // Look for "Total Models" followed by any HTML content until we find the number
-            const totalModelsMatch = html.match(
-              /Total Models[\s\S]*?<p[^>]*>(\d+)<\/p>/i
-            );
-            if (totalModelsMatch) {
-              metadata.total_models = totalModelsMatch[1]?.trim();
-            }
-
-            return Object.keys(metadata).length > 0 ? metadata : null;
-          } catch (err) {
-            return null; // Fail silently if metadata parsing fails
-          }
-        };
-
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const scripts = Array.from(doc.scripts);
-        const s = scripts.find((s) =>
-          s.textContent?.includes("StyleControl")
-        )?.textContent;
+        const script = Array.from(doc.scripts).find((s) =>
+          s.textContent?.includes("hasStyleControl")
+        );
 
-        if (!s) throw new Error("StyleControl script not found");
+        if (!script) throw new Error("hasStyleControl script not found");
 
-        const j = s
-          ?.slice(s.indexOf('"') + 1, s.lastIndexOf('"'))
+        const jsonStr = script.textContent
+          ?.slice(
+            script.textContent.indexOf('"') + 1,
+            script.textContent.lastIndexOf('"')
+          )
           .replace(/\\"/g, '"');
 
         const parsedData = JSON.parse(
-          j!.slice(j!.indexOf("{"), j!.lastIndexOf("}") + 1)
+          jsonStr!.slice(jsonStr!.indexOf("{"), jsonStr!.lastIndexOf("}") + 1)
         );
+
+        const parseMetadata = () => {
+          const metadata: Record<string, string | undefined> = {};
+
+          const lastUpdatedMatch = html.match(
+            /Last Updated[\s\S]*?<p[^>]*>([^<]+)<\/p>/i
+          );
+          if (lastUpdatedMatch)
+            metadata.last_updated = lastUpdatedMatch[1]?.trim();
+
+          const totalVotesMatch = html.match(
+            /Total Votes[\s\S]*?<p[^>]*>([\d,]+)<\/p>/i
+          );
+          if (totalVotesMatch)
+            metadata.total_votes = totalVotesMatch[1]?.trim();
+
+          const totalModelsMatch = html.match(
+            /Total Models[\s\S]*?<p[^>]*>(\d+)<\/p>/i
+          );
+          if (totalModelsMatch)
+            metadata.total_models = totalModelsMatch[1]?.trim();
+
+          return Object.keys(metadata).length > 0 ? metadata : null;
+        };
 
         return {
           data: parsedData,
@@ -150,12 +135,12 @@ export async function llmArenaNew(page: Page, url: string) {
       log(
         `❌ Error: ${
           leaderboardData.error
-        } (${emptyLeaderboardCount}/10) | Uptime: ${formatUptime(
+        } (${emptyLeaderboardCount}/${MAX_RETRIES}) | Uptime: ${formatUptime(
           currentUptime
         )} | Cycle: ${cycleCount}`
       );
 
-      if (emptyLeaderboardCount >= 10) {
+      if (emptyLeaderboardCount >= MAX_RETRIES) {
         log("🔄 Restarting VPN...");
         await restartContainer(VPN_CONATAINER_NAME);
         await gracefulShutdown();
@@ -169,15 +154,15 @@ export async function llmArenaNew(page: Page, url: string) {
     if (
       !leaderboardData ||
       !("data" in leaderboardData) ||
-      !leaderboardData.data?.leaderboards
+      !leaderboardData.data?.leaderboard
     ) {
       emptyLeaderboardCount++;
       log(
-        `⚠️ Empty data (${emptyLeaderboardCount}/10) | Uptime: ${formatUptime(
+        `⚠️ Empty data (${emptyLeaderboardCount}/${MAX_RETRIES}) | Uptime: ${formatUptime(
           currentUptime
         )} | Cycle: ${cycleCount}`
       );
-      if (emptyLeaderboardCount >= 10) {
+      if (emptyLeaderboardCount >= MAX_RETRIES) {
         log("🔄 Restarting VPN...");
         await restartContainer(VPN_CONATAINER_NAME);
         await gracefulShutdown();
@@ -218,10 +203,7 @@ export async function llmArenaNew(page: Page, url: string) {
       lastHtmlHash = currentHtmlHash;
     }
 
-    const styleControlLeaderboard = leaderboardData.data.leaderboards.find(
-      (lb: LlmAreenaLeaderboard) =>
-        lb.leaderboardType === LeaderboardType.RemoveStyleControl
-    );
+    const styleControlLeaderboard = leaderboardData.data.leaderboard;
 
     if (!styleControlLeaderboard) {
       log(
@@ -237,20 +219,12 @@ export async function llmArenaNew(page: Page, url: string) {
     if (styleControlLeaderboard?.entries) {
       styleControlLeaderboard.entries.forEach((entry: Entry) => {
         const leaderboardEntry = {
-          rankUb: entry.rank.toString(),
-          model: entry.modelName,
-          modelName: extractModelName(entry.modelName),
-          arenaScore: entry.score.toString(),
-          ci: `${entry.confidenceIntervalLower.toFixed(
-            1
-          )}, ${entry.confidenceIntervalUpper.toFixed(1)}`,
-          votes: entry.votes,
-          organization: entry.modelOrganization,
-          license: entry.license,
+          rank: entry.rank,
+          modelDisplayName: entry.modelDisplayName,
+          rating: entry.rating.toString(),
+          modelOrganization: entry.modelOrganization,
         };
-        llmLeaderboard.push(
-          leaderboardEntry as unknown as typeof llmLeaderboardSchema.$inferInsert
-        );
+        llmLeaderboard.push(leaderboardEntry);
       });
     }
 
@@ -258,7 +232,9 @@ export async function llmArenaNew(page: Page, url: string) {
       emptyLeaderboardCount = 0;
       successfulUpdates++;
       const uniqueEntries = Array.from(
-        new Map(llmLeaderboard.map((item) => [item.modelName, item])).values()
+        new Map(
+          llmLeaderboard.map((item) => [item.modelDisplayName, item])
+        ).values()
       );
 
       try {
@@ -268,7 +244,7 @@ export async function llmArenaNew(page: Page, url: string) {
           .insert(llmLeaderboardSchema)
           .values(uniqueEntries)
           .onConflictDoUpdate({
-            target: [llmLeaderboardSchema.modelName],
+            target: [llmLeaderboardSchema.modelDisplayName],
             set: conflictUpdateAllExcept(llmLeaderboardSchema, ["id"]),
           });
 
@@ -277,7 +253,7 @@ export async function llmArenaNew(page: Page, url: string) {
         const topModels = top3
           .map(
             (entry: Entry, i: number) =>
-              `#${i + 1} ${entry.modelOrganization}(${entry.score})`
+              `#${i + 1} ${entry.modelOrganization}(${entry.rating})`
           )
           .join(" | ");
 
@@ -312,11 +288,11 @@ export async function llmArenaNew(page: Page, url: string) {
 
         log("");
       } catch (error) {
-        log(
-          `❌ DB error: ${error} | Uptime: ${formatUptime(
-            currentUptime
-          )} | Cycle: ${cycleCount}`
-        );
+        // log(
+        //   `❌ DB error: ${error} | Uptime: ${formatUptime(
+        //     currentUptime
+        //   )} | Cycle: ${cycleCount}`
+        // );
       }
     } else {
       log(

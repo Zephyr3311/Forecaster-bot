@@ -12,15 +12,13 @@ import {
 
 export const llmLeaderboardSchema = pgTable("llm_leaderboard", {
   id: serial("id").primaryKey(),
-  rankUb: integer("rank_ub").notNull(),
-  rankStyleCtrl: integer("rank_style_ctrl"),
-  model: text("model").notNull().unique(),
-  modelName: text("model_name").notNull().unique(),
-  arenaScore: integer("arena_score").notNull(),
-  ci: text("ci").notNull(),
-  votes: integer("votes").notNull(),
-  organization: text("organization").notNull(),
-  license: text("license").notNull(),
+  rank: integer("rank").notNull(),
+  modelDisplayName: text("model_display_name").unique().notNull(),
+  rating: decimal("rating", {
+    precision: 10,
+    scale: 2,
+  }).notNull(),
+  modelOrganization: text("model_organization").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

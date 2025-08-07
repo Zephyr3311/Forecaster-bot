@@ -9,7 +9,7 @@ const main = async () => {
     connectOption: { defaultViewport: null },
   });
 
-  await llmArenaNew(page, "https://lmarena.ai/leaderboard/text/overall");
+  await llmArenaNew(page, "https://lmarena.ai/leaderboard/text/overall-no-style-control");
 };
 
 main().catch((err) => {
