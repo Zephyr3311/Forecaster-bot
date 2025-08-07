@@ -203,26 +203,26 @@ async function runCycle(assetIds: string[]): Promise<void> {
     const topModel = await db
       .select()
       .from(llmLeaderboardSchema)
-      .orderBy(desc(llmLeaderboardSchema.arenaScore))
+      .orderBy(desc(llmLeaderboardSchema.rating))
       .limit(1)
       .then((results) => results[0]);
 
     if (!topModel) return;
 
-    const topModelOrg = topModel.organization.toLowerCase();
+    const topModelOrg = topModel.modelOrganization.toLowerCase();
 
     log(
       `Current: ${portfolioState.currentModelOrg}, Top model: ${topModelOrg}`
     );
     if (portfolioState.currentModelOrg === topModelOrg) {
       log(
-        `No change in top model: ${topModel.modelName} (${topModel.organization})`
+        `No change in top model: ${topModel.modelDisplayName} (${topModel.modelOrganization})`
       );
       return;
     }
 
     log(
-      `🚨 Top model changed to ${topModel.modelName} (${topModel.organization})`
+      `🚨 Top model changed to ${topModel.modelDisplayName} (${topModel.modelOrganization})`
     );
 
     const currentMonth = dayjs().format("MMMM").toLowerCase();
@@ -242,7 +242,7 @@ async function runCycle(assetIds: string[]): Promise<void> {
       .then((markets) => markets[0]);
 
     if (!market) {
-      log(`No market found for ${topModel.organization}`);
+      log(`No market found for ${topModel.modelOrganization}`);
       return;
     }
 
