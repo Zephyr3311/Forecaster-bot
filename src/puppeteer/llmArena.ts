@@ -288,11 +288,11 @@ export async function llmArenaNew(page: Page, url: string) {
 
         log("");
       } catch (error) {
-        // log(
-        //   `❌ DB error: ${error} | Uptime: ${formatUptime(
-        //     currentUptime
-        //   )} | Cycle: ${cycleCount}`
-        // );
+        log(
+          `❌ DB error: ${error} | Uptime: ${formatUptime(
+            currentUptime
+          )} | Cycle: ${cycleCount}`
+        );
       }
     } else {
       log(
