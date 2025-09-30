@@ -1,5 +1,5 @@
 {
-  "id": "a85ba776-80b3-4905-86ed-7a0b021095b2",
+  "id": "0e268458-517a-473d-99a2-7b97b9ea0343",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -383,10 +383,10 @@
         },
         "min_size": {
           "name": "min_size",
-          "type": "integer",
+          "type": "numeric(10, 2)",
           "primaryKey": false,
           "notNull": false,
-          "default": 0
+          "default": "'0'"
         },
         "max_spread": {
           "name": "max_spread",

@@ -56,7 +56,7 @@ CREATE TABLE "reward_rate" (
 CREATE TABLE "reward" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"market_id" integer NOT NULL,
-	"min_size" integer DEFAULT 0,
+	"min_size" numeric(10, 2) DEFAULT '0',
 	"max_spread" numeric(10, 2) DEFAULT '0'
 );
 --> statement-breakpoint

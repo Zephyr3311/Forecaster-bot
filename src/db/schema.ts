@@ -116,7 +116,7 @@ export const rewardSchema = pgTable("reward", {
   marketId: integer("market_id")
     .notNull()
     .references(() => marketSchema.id, { onDelete: "cascade" }),
-  minSize: integer("min_size").default(0),
+  minSize: decimal("min_size", { precision: 10, scale: 2 }).default("0"),
   maxSpread: decimal("max_spread", { precision: 10, scale: 2 }).default("0"),
 });
 
