@@ -11,14 +11,14 @@ const main = async () => {
     connectOption: { defaultViewport: null },
   });
 
-  // try {
-  //   if (isRunningInDocker()) {
-  //     execSync("rm -rf /tmp/lighthouse.* /tmp/puppeteer* 2>/dev/null", {
-  //       timeout: 60000,
-  //     });
-  //     log("Cleaned up temp folders on startup");
-  //   }
-  // } catch {}
+  try {
+    if (isRunningInDocker()) {
+      execSync("rm -rf /tmp/lighthouse.* /tmp/puppeteer* 2>/dev/null", {
+        timeout: 60000,
+      });
+      log("Cleaned up temp folders on startup");
+    }
+  } catch {}
 
   await llmArenaNew(
     page,
