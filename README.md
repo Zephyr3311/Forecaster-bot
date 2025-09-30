@@ -28,3 +28,5 @@ to seed the database
 ```bash
 bun markets
 ```
+
+<!-- I need a safe bet that I can place based on current facts and logic. The data is already prefiltered with risk and tolerance categories, which don’t matter, but it has to be based on data. its not about probablity but about the already known facts via news and outlets -->

@@ -18,9 +18,9 @@ import { syncMarkets } from "./polymarket/markets";
 import { isSportsMarket } from "./utils/blacklist";
 import { retryWithBackoff } from "./utils/retry";
 
-const MIN_TOKEN_PERCENTAGE = 3; // 2%
-const PORTFOLIO_VALUE = 1526; // $4,000 portfolio value
-const MAX_SLIPPAGE_PERCENTAGE = 50; // 5% max slippage threshold
+const MIN_TOKEN_PERCENTAGE = 10; // 2%
+const PORTFOLIO_VALUE = 2100; // $4,000 portfolio value
+const MAX_SLIPPAGE_PERCENTAGE = 5; // 5% max slippage threshold
 const MAX_DAYS = 20; // Max days to look ahead for markets
 
 async function fetchTradeHistory(tokenId: string, outcomeLabel: string) {
@@ -291,7 +291,7 @@ async function main() {
   try {
     await retryWithBackoff(
       async () => {
-        await syncMarkets();
+        // await syncMarkets();
       },
       3,
       5000
