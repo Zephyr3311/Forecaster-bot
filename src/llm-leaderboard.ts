@@ -6,11 +6,6 @@ import { llmArenaNew } from "./puppeteer/llmArena";
 import { isRunningInDocker } from "./utils";
 
 const main = async () => {
-  const { page } = await connect({
-    turnstile: true,
-    connectOption: { defaultViewport: null },
-  });
-
   try {
     if (isRunningInDocker()) {
       execSync("rm -rf /tmp/lighthouse.* /tmp/puppeteer* 2>/dev/null", {
@@ -19,6 +14,11 @@ const main = async () => {
       log("Cleaned up temp folders on startup");
     }
   } catch {}
+
+  const { page } = await connect({
+    turnstile: true,
+    connectOption: { defaultViewport: null },
+  });
 
   await llmArenaNew(
     page,
