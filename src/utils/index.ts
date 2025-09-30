@@ -1,4 +1,5 @@
 import type { Trade } from "@polymarket/clob-client";
+import { existsSync } from "fs";
 
 export function extractModelName(htmlString: string): string {
   // Try to extract from HTML format first
@@ -25,4 +26,19 @@ export function extractAssetIdsFromTrades(trades: Trade[]): string[] {
         .filter(Boolean)
     ),
   ] as string[];
+}
+
+export function isRunningInDocker(): boolean {
+  // Check for .dockerenv file
+  if (existsSync("/.dockerenv")) {
+    return true;
+  }
+
+  // Check cgroup (works for most Docker setups)
+  try {
+    const cgroup = require("fs").readFileSync("/proc/1/cgroup", "utf8");
+    return cgroup.includes("docker") || cgroup.includes("kubepods");
+  } catch {
+    return false;
+  }
 }

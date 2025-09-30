@@ -3,6 +3,7 @@ import { execSync } from "child_process";
 import { error, log } from "console";
 import { connect } from "puppeteer-real-browser";
 import { llmArenaNew } from "./puppeteer/llmArena";
+import { isRunningInDocker } from "./utils";
 
 const main = async () => {
   const { page } = await connect({
@@ -11,10 +12,12 @@ const main = async () => {
   });
 
   try {
-    execSync("rm -rf /tmp/lighthouse.* /tmp/puppeteer* 2>/dev/null", {
-      timeout: 60000,
-    });
-    log("Cleaned up temp folders on startup");
+    if (isRunningInDocker()) {
+      execSync("rm -rf /tmp/lighthouse.* /tmp/puppeteer* 2>/dev/null", {
+        timeout: 60000,
+      });
+      log("Cleaned up temp folders on startup");
+    }
   } catch {}
 
   await llmArenaNew(
