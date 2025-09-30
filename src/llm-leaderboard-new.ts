@@ -12,7 +12,7 @@ const main = async () => {
 
   try {
     execSync("rm -rf /tmp/lighthouse.* /tmp/puppeteer* 2>/dev/null", {
-      timeout: 5000,
+      timeout: 60000,
     });
     log("Cleaned up temp folders on startup");
   } catch {}
