@@ -2,7 +2,7 @@ import { OrderType, Side } from "@polymarket/clob-client";
 import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
-import { and, desc, eq, ilike } from "drizzle-orm";
+import { and, desc, eq, ilike, not } from "drizzle-orm";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
@@ -63,8 +63,9 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
       .then((results) => results[0]);
 
     const slugMatch = market?.marketSlug.match(
-      /will-([^-]+)-have-the-top-ai-model-on-/
+      /will-([^-]+)-have-the-(?:best|top)-ai-model/
     );
+
     if (slugMatch && slugMatch[1]) {
       portfolioState.currentModelOrg = slugMatch[1].toLowerCase();
       log(
@@ -233,8 +234,9 @@ async function runCycle(assetIds: string[]): Promise<void> {
         and(
           ilike(
             marketSchema.marketSlug,
-            `will-${topModelOrg}-have-the-top-ai-model-on-${currentMonth}-%`
+            `will-%-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
           ),
+          not(ilike(marketSchema.marketSlug, "%style-control-on%")),
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false)
         )
