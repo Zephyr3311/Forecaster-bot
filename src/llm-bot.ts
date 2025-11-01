@@ -234,9 +234,9 @@ async function runCycle(assetIds: string[]): Promise<void> {
         and(
           ilike(
             marketSchema.marketSlug,
-            `will-%-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
+            `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
           ),
-          not(ilike(marketSchema.marketSlug, "%style-control-on%")),
+          not(ilike(marketSchema.marketSlug, "%style-control%")),
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false)
         )

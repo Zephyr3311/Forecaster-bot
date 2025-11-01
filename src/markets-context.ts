@@ -14,7 +14,6 @@ import {
   USDC_ID,
   USDCE_DIGITS,
 } from "./polymarket/constants";
-import { syncMarkets } from "./polymarket/markets";
 import { isSportsMarket } from "./utils/blacklist";
 import { retryWithBackoff } from "./utils/retry";
 
