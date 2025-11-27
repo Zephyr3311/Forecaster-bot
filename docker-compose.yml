@@ -92,6 +92,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
   polybot-vpn-leaderboard:
+    # epic puffer
     container_name: polybot-vpn-leaderboard
     restart: always
     network_mode: bridge
@@ -102,10 +103,9 @@ services:
       - /dev/net/tun:/dev/net/tun
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=${OPENVPN_USER}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
-      - OPENVPN_CIPHERS=AES-256-GCM
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES="10.71.184.246/32"
       - LOG_LEVEL=debug
     extra_hosts:
       - "host.docker.internal:host-gateway"

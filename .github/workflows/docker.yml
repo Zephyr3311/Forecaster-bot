@@ -29,8 +29,7 @@ jobs:
           echo CLOB_PASS_PHRASE=${{ secrets.CLOB_PASS_PHRASE }} >> .env
           echo POLYMARKET_FUNDER_ADDRESS=${{ secrets.POLYMARKET_FUNDER_ADDRESS }} >> .env
 
-          echo OPENVPN_USER=${{ secrets.OPENVPN_USER }} >> .env
-          echo OPENVPN_PASSWORD=${{ secrets.OPENVPN_PASSWORD }} >> .env
+          echo WIREGUARD_PRIVATE_KEY=${{ secrets.WIREGUARD_PRIVATE_KEY }} >> .env
 
       # - name: Reset DB
       #   run: docker stop polybot-db || true && docker rm polybot-db || true
