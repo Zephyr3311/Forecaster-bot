@@ -4,14 +4,6 @@ export enum CallType {
   DelegateCall = "2",
 }
 
-export interface ProxyTransaction {
-  to: string;
-  typeCode: CallType;
-  data: string;
-  value: string;
-}
-
-// Safe Transactions
 export enum OperationType {
   Call, // 0
   DelegateCall, // 1

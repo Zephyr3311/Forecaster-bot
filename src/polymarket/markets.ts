@@ -248,7 +248,7 @@ export async function upsertMarkets(marketsList: Market[]) {
           .filter(({ market }) => market.rewards)
           .map(({ market, dbId }) => ({
             marketId: dbId,
-            minSize: market.rewards!.min_size,
+            minSize: String(market.rewards!.min_size),
             maxSpread: String(market.rewards!.max_spread),
           }));
 
