@@ -228,25 +228,27 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
     const currentMonth = dayjs().format("MMMM").toLowerCase();
     const currentYear = dayjs().format("YYYY");
-    
+
     const market = await db
       .select()
       .from(marketSchema)
       .where(
         and(
           or(
-            // Monthly pattern
             ilike(
               marketSchema.marketSlug,
               `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
             ),
-            // Yearly pattern
             ilike(
               marketSchema.marketSlug,
-              `will-${topModelOrg}-have-the-best-ai-model%-at-the-end-of-${currentYear}`
+              `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentYear}`
             )
           ),
+          not(ilike(marketSchema.marketSlug, "%coding%")),
+          not(ilike(marketSchema.marketSlug, "%math%")),
           not(ilike(marketSchema.marketSlug, "%style-control%")),
+          not(ilike(marketSchema.marketSlug, "%reasoning%")),
+          not(ilike(marketSchema.marketSlug, "%vision%")),
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false)
         )
