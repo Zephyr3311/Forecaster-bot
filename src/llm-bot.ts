@@ -2,7 +2,7 @@ import { OrderType, Side } from "@polymarket/clob-client";
 import { sleep } from "bun";
 import { error, log } from "console";
 import dayjs from "dayjs";
-import { and, desc, eq, ilike, not } from "drizzle-orm";
+import { and, desc, eq, ilike, not, or } from "drizzle-orm";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { db } from "./db";
 import { llmLeaderboardSchema, marketSchema, tokenSchema } from "./db/schema";
@@ -227,14 +227,24 @@ async function runCycle(assetIds: string[]): Promise<void> {
     );
 
     const currentMonth = dayjs().format("MMMM").toLowerCase();
+    const currentYear = dayjs().format("YYYY");
+    
     const market = await db
       .select()
       .from(marketSchema)
       .where(
         and(
-          ilike(
-            marketSchema.marketSlug,
-            `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
+          or(
+            // Monthly pattern
+            ilike(
+              marketSchema.marketSlug,
+              `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
+            ),
+            // Yearly pattern
+            ilike(
+              marketSchema.marketSlug,
+              `will-${topModelOrg}-have-the-best-ai-model%-at-the-end-of-${currentYear}`
+            )
           ),
           not(ilike(marketSchema.marketSlug, "%style-control%")),
           eq(marketSchema.active, true),
