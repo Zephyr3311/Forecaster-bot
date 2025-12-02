@@ -235,13 +235,15 @@ async function runCycle(assetIds: string[]): Promise<void> {
       .where(
         and(
           or(
+            // Monthly pattern
             ilike(
               marketSchema.marketSlug,
               `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
             ),
+            // Yearly pattern
             ilike(
               marketSchema.marketSlug,
-              `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentYear}`
+              `will-${topModelOrg}-have-the-best-ai-model%-at-the-end-of-${currentYear}`
             )
           ),
           not(ilike(marketSchema.marketSlug, "%coding%")),

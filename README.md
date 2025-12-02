@@ -33,3 +33,4 @@ bun markets
 
 <!-- market_slug ILIKE '%november%' AND market_slug ILIKE 'will-%have-the-best-ai-model%' AND market_slug NOT ILIKE '%style-control%' AND active IS TRUE -->
 <!-- market_slug ILIKE '%2025%' AND market_slug ILIKE 'will-%have-the-best-ai-model%' AND market_slug NOT ILIKE '%style-control%' AND active IS TRUE -->
+<!-- market_slug ILIKE '%coding%' AND market_slug NOT ILIKE '%style-control%' AND active IS TRUE -->
