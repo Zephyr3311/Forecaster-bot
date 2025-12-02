@@ -65,13 +65,19 @@ async function initializeCurrentPosition(assetIds: string[]): Promise<void> {
     const slugMatch = market?.marketSlug.match(
       /will-([^-]+)-have-the-(?:best|top)-ai-model/
     );
+    const questionMatch = market?.question.match(
+      /will\s+(\w+)\s+have\s+(?:the\s+)?(?:best|top)\s+ai\s+model/i
+    );
 
-    if (slugMatch && slugMatch[1]) {
-      portfolioState.currentModelOrg = slugMatch[1].toLowerCase();
+    const companyName = slugMatch?.[1] || questionMatch?.[1];
+
+    if (companyName) {
+      portfolioState.currentModelOrg = companyName.toLowerCase();
       log(
-        `✅ Initialized current position: ${
-          slugMatch[1]
-        } (Balance: ${formatUnits(highestBalance.toString(), USDCE_DIGITS)})`
+        `✅ Initialized current position: ${companyName} (Balance: ${formatUnits(
+          highestBalance.toString(),
+          USDCE_DIGITS
+        )})`
       );
     } else {
       log(
@@ -301,9 +307,7 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
     // Only buy if we don't already have a significant position
     if (BigInt(currentBalance) <= MINIMUM_BALANCE) {
-      console.log(
-        `Buying position for ${topModelOrg} (token ID: ${yesToken.tokenId})`
-      );
+      log(`Buying position for ${topModelOrg} (token ID: ${yesToken.tokenId})`);
       await buyPosition(yesToken.tokenId, topModelOrg);
     } else {
       log(`Already holding ${topModelOrg} position, no need to buy`);
