@@ -228,6 +228,7 @@ async function runCycle(assetIds: string[]): Promise<void> {
 
     const currentMonth = dayjs().format("MMMM").toLowerCase();
     const currentYear = dayjs().format("YYYY");
+    const lastDayOfMonth = dayjs().daysInMonth();
 
     const market = await db
       .select()
@@ -235,22 +236,40 @@ async function runCycle(assetIds: string[]): Promise<void> {
       .where(
         and(
           or(
-            // Monthly pattern
-            ilike(
-              marketSchema.marketSlug,
-              `will-${topModelOrg}-have-the-best-ai-model-at-the-end-of-${currentMonth}-%`
+            and(
+              or(
+                ilike(
+                  marketSchema.marketSlug,
+                  `will-%${topModelOrg}%-have-the-best-ai-model-at-the-end-of-${currentMonth}%`
+                ),
+                ilike(
+                  marketSchema.marketSlug,
+                  `will-%${topModelOrg}%-have-the-top-ai-model-on-${currentMonth}-${lastDayOfMonth}`
+                ),
+                ilike(
+                  marketSchema.marketSlug,
+                  `will-%${topModelOrg}%-have-the-best-ai-model%-at-the-end-of-${currentYear}`
+                )
+              )
             ),
-            // Yearly pattern
-            ilike(
-              marketSchema.marketSlug,
-              `will-${topModelOrg}-have-the-best-ai-model%-at-the-end-of-${currentYear}`
+            // Company NOT in slug, but in question
+            and(
+              // Slug doesn't contain company name
+              not(ilike(marketSchema.marketSlug, `%${topModelOrg}%`)),
+              or(
+                ilike(
+                  marketSchema.question,
+                  `%will%${topModelOrg}%have%top%ai%model%on%${currentMonth}%${lastDayOfMonth}%`
+                )
+              )
             )
           ),
+          // Common exclusions
           not(ilike(marketSchema.marketSlug, "%coding%")),
           not(ilike(marketSchema.marketSlug, "%math%")),
           not(ilike(marketSchema.marketSlug, "%style-control%")),
-          not(ilike(marketSchema.marketSlug, "%reasoning%")),
-          not(ilike(marketSchema.marketSlug, "%vision%")),
+          not(ilike(marketSchema.question, "%coding%")),
+          not(ilike(marketSchema.question, "%math%")),
           eq(marketSchema.active, true),
           eq(marketSchema.closed, false)
         )
